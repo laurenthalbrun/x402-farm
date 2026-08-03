@@ -326,7 +326,11 @@ if (PAY_TO) {
   // On calcule donc ce qui RESTE pour la description une fois tout le reste assemblé.
   // Le texte complet reste servi par la page d'accueil, llms.txt et .well-known (non payants).
   const PAYLOAD_CEILING = Number(process.env.X402_PAYLOAD_CEILING || 1900);
-  const HEADER_OVERHEAD = 460; // enveloppe ajoutée par le middleware (mesurée entre 394 et 452 o)
+  // Enveloppe ajoutée par le middleware autour du JSON. Mesurée en prod entre 394 et 468 o
+  // selon la route (elle dépend de l'URL de la ressource et du nombre d'entrées `accepts`).
+  // On prend le haut de la fourchette : sous-estimer fait dépasser le plafond, le surestimer
+  // ne coûte que quelques caractères de description.
+  const HEADER_OVERHEAD = 480;
   const DESC_FLOOR = 80; // en dessous, la description ne vend plus rien
   const descTrimmed = [];
   const descStarved = [];
