@@ -82,9 +82,38 @@ export function proxyTierGuard() {
       }
     }
     if (!req.path.startsWith("/v1/proxy/") && !req.path.startsWith("/v1/mobile-proxy/")) return next();
-    const tier = /^\/v1\/(proxy\/mobile|mobile-proxy)\//.test(req.path) ? "mobile" : "residential";
-    const gb = Number(/\/(\d+)gb$/.exec(req.path)?.[1] || 0);
+    // ⚠️ Les routes /v1/proxy/port/* sont vendues comme MOBILE (issue(..., "mobile", …))
+    // mais l'ancien motif ne les reconnaissait pas : elles étaient contrôlées comme
+    // « residential ». Conséquence : sortie mobile tombée + résidentielle debout = le garde
+    // laissait passer, le paywall RÉGLAIT, puis issue() renvoyait 503. L'acheteur était
+    // débité sans être livré, précisément ce que ce garde existe pour empêcher — et sur
+    // l'article le plus cher du catalogue.
+    const isPort = /^\/v1\/proxy\/port\//.test(req.path);
+    const tier = isPort || /^\/v1\/(proxy\/mobile|mobile-proxy)\//.test(req.path) ? "mobile" : "residential";
+    const gb = isPort
+      ? (/\/port\/30d$/.test(req.path) ? PORT_30D_GB : PORT_7D_GB)
+      : Number(/\/(\d+)gb$/.exec(req.path)?.[1] || 0);
     const state = await exitState();
+
+    // Un port dédié réserve une radio entière. On ne vend pas au-delà de la capacité
+    // physique : le refus est explicite, AVANT le paywall, donc sans facturation.
+    if (isPort) {
+      const capacity = mobileCapacity(state);
+      const active = await activePorts();
+      if (capacity > 0 && active && active.length >= capacity) {
+        const freeAt = active.map((p) => new Date(p.expires_at)).sort((a, b) => a - b)[0];
+        return res.status(409).json({
+          error: "port_sold_out",
+          detail: `All ${capacity} dedicated mobile port(s) are allocated. A dedicated port reserves one physical radio for one buyer — we do not oversell it. You were not charged.`,
+          capacity,
+          active_ports: active.length,
+          next_available: freeAt ? freeAt.toISOString() : null,
+          alternatives: ["/v1/mobile-proxy/1gb", "/v1/mobile-proxy/5gb"],
+          status_endpoint: "/free/proxy/status",
+        });
+      }
+    }
+
     if (pickExit(state, tier, gb)) return next();
     // Le tier existe mais le forfait data restant ne couvre pas ce bundle : on le dit,
     // et on propose la taille qui passe encore. Vendre 5 Go quand il en reste 2 = mentir.
@@ -115,7 +144,61 @@ export function proxyTierGuard() {
 const PORT_30D_GB = Number(process.env.PORT_30D_GB || 100);
 const PORT_7D_GB = Number(process.env.PORT_7D_GB || 25);
 
-function issue(gb, tier = "residential", ttlDays = 30) {
+// ===== Exclusivité des ports dédiés =====
+// Un port est vendu comme « dedicated » : une radio = une IP concurrente = UN client.
+// Rien ne le réservait jusqu'ici — deux acheteurs pouvaient payer un port « dédié » et
+// partager la même sortie. On borne donc les ventes à la CAPACITÉ RÉELLE (nombre de
+// sorties mobiles vérifiées), pas à un « un seul port » codé en dur : le jour où un
+// second modem apparaît, la seconde vente s'ouvre toute seule.
+//
+// Persistance : Supabase. La clé anon est la seule dont dispose le serveur, donc un tiers
+// qui l'obtiendrait pourrait insérer de fausses lignes pour saturer la capacité. Chaque
+// ligne porte une signature HMAC (PROXY_HMAC_SECRET) VÉRIFIÉE ICI à la lecture ; les
+// lignes non signées sont ignorées. Toute panne côté base est silencieuse et NE BLOQUE
+// PAS la vente : on préfère un sur-engagement rare à un refus de vente injustifié.
+const SB_URL = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+const SB_KEY = process.env.SUPABASE_ANON_KEY || "";
+const portsTracked = !!(SB_URL && SB_KEY && SECRET);
+
+const portSig = (tier, gb, expIso) =>
+  b64url(crypto.createHmac("sha256", SECRET).update(`${tier}.${gb}.${expIso}`).digest()).slice(0, 32);
+
+/** Nombre de sorties mobiles vérifiées = nombre de ports dédiés vendables simultanément. */
+function mobileCapacity(state) {
+  if (!state || state.stale || !state.exits) return 0;
+  return Object.entries(state.exits).filter(([name, e]) => e.ok && e.mobile && name !== "residential").length;
+}
+
+/** Ports encore valides, signature vérifiée. Renvoie null si le suivi est indisponible. */
+async function activePorts() {
+  if (!portsTracked) return null;
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/proxy_ports?select=tier,gb,expires_at,sig&expires_at=gt.${new Date().toISOString()}`,
+      { headers: { apikey: SB_KEY, authorization: `Bearer ${SB_KEY}` }, signal: AbortSignal.timeout(2500) }
+    );
+    if (!r.ok) return null;
+    const rows = await r.json();
+    if (!Array.isArray(rows)) return null;
+    return rows.filter((x) => x.sig === portSig(x.tier, x.gb, new Date(x.expires_at).toISOString()));
+  } catch { return null; }
+}
+
+/** Enregistre un port vendu. Silencieux en cas d'échec (la livraison prime). */
+async function recordPort(tier, gb, ttlDays) {
+  if (!portsTracked) return;
+  const expires = new Date(Date.now() + ttlDays * 86400_000).toISOString();
+  try {
+    await fetch(`${SB_URL}/rest/v1/proxy_ports`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, authorization: `Bearer ${SB_KEY}`, "content-type": "application/json", prefer: "return=minimal" },
+      body: JSON.stringify({ tier, gb, ttl_days: ttlDays, expires_at: expires, sig: portSig(tier, gb, expires) }),
+      signal: AbortSignal.timeout(2500),
+    });
+  } catch { /* la vente est faite, on ne casse pas la livraison pour un log */ }
+}
+
+function issue(gb, tier = "residential", ttlDays = 30, isPortSale = false) {
   return async (_req, res) => {
     if (!SECRET) return res.status(503).json({ error: "proxy_not_configured" });
     const state = await exitState();
@@ -134,6 +217,9 @@ function issue(gb, tier = "residential", ttlDays = 30) {
     }
     const key = signKey(gb, ttlDays);
     const user = exit.name === "residential" ? "buyer" : exit.name;
+    // Port dédié : on enregistre l'attribution pour que la capacité soit décomptée.
+    // Non bloquant — la vente est faite, on ne casse pas la livraison pour un log.
+    if (isPortSale) await recordPort(tier, gb, ttlDays);
     res.json({
       key,
       gb,
@@ -170,8 +256,8 @@ router.get("/v1/mobile-proxy/5gb", issue(5, "mobile"));
 // PORTS DÉDIÉS (modèle dominant du marché du proxy mobile : un port, un forfait, une
 // durée, plutôt qu'un comptage au Go). Même clé signée, seuls le volume et la durée
 // changent — donc payable en x402 immédiatement, sans abonnement à gérer.
-router.get("/v1/proxy/port/30d", issue(PORT_30D_GB, "mobile", 30));
-router.get("/v1/proxy/port/7d", issue(PORT_7D_GB, "mobile", 7));
+router.get("/v1/proxy/port/30d", issue(PORT_30D_GB, "mobile", 30, true));
+router.get("/v1/proxy/port/7d", issue(PORT_7D_GB, "mobile", 7, true));
 
 // Free preview: lets an agent (or us) check what's actually serving before paying.
 router.get("/free/proxy/status", async (_req, res) => {
@@ -275,10 +361,10 @@ ${row("Logging", "timestamp, exit, key tail and target host:port. Never any payl
 
 <section><h2>Buying</h2><div class="card">
 <div class="price">
-  <span><b>$19</b> — 7-day test port, up to 25 GB</span><span class="mono">/v1/proxy/port/7d</span>
-  <span><b>$75</b> — dedicated port, 30 days, up to 100 GB</span><span class="mono">/v1/proxy/port/30d</span>
-  <span><b>$5</b> — metered bundle, 1 GB, 30 days</span><span class="mono">/v1/mobile-proxy/1gb</span>
-  <span><b>$22</b> — metered bundle, 5 GB, 30 days</span><span class="mono">/v1/mobile-proxy/5gb</span>
+  <span><b>$39</b> — 7-day test port, up to 25 GB</span><span class="mono">/v1/proxy/port/7d</span>
+  <span><b>$129</b> — dedicated port, 30 days, up to 100 GB</span><span class="mono">/v1/proxy/port/30d</span>
+  <span><b>$7</b> — metered bundle, 1 GB, 30 days</span><span class="mono">/v1/mobile-proxy/1gb</span>
+  <span><b>$30</b> — metered bundle, 5 GB, 30 days</span><span class="mono">/v1/mobile-proxy/5gb</span>
 </div>
 <p style="margin:.9rem 0 0"><small>Paid per call in USDC over the x402 protocol (Base network): call the URL, you get a 402 with the payment requirements, you pay, you get the key. No account, no signup. Volumes scale with the carrier plan — ask for a quote above 10 GB, or for a port billed by bank transfer instead of crypto.</small></p>
 <p style="margin:.6rem 0 0"><small>If no mobile exit is verified at that moment, these routes answer <code>503</code> and you are <b>not</b> charged — see <a href="/free/proxy/status">/free/proxy/status</a>.</small></p>

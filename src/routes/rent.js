@@ -60,7 +60,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
   <div class="live" id="live"><span class="dot" id="dot"></span><span id="livetxt">checking live exit…</span></div>
   <div class="cta">
     <a class="btn" href="#pricing">Get a dedicated port</a>
-    <a class="btn alt" href="#pricing">Try 7 days — $19</a>
+    <a class="btn alt" href="#pricing">Try 7 days — $39</a>
   </div>
 </header>
 
@@ -87,11 +87,11 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
 
 <section id="pricing">
   <h2>Pricing</h2>
-  <p class="muted">Market rate for a dedicated mobile port is $50–$300/mo. Priced at the accessible end for a scarce geo.</p>
+  <p class="muted">Market rate for a dedicated mobile port is $99–$132/mo on metropolitan France (Orange/SFR/Bouygues). This one is a France <b>and Guadeloupe</b> carrier IP — a geo almost no provider sells.</p>
   <div class="plans">
-    <div class="plan"><span class="name">7-day test port</span><div class="price">$19</div><div class="gb">up to 25 GB · 7 days</div><ul><li>Qualify the exit first</li><li>Full mobile IP, no limits on use</li><li>Crypto payment, instant</li></ul><a class="btn alt buy" href="#order">Start the test</a></div>
-    <div class="plan feat"><span class="name">Dedicated port <span class="badge">Most popular</span></span><div class="price">$75<span>/mo</span></div><div class="gb">up to 100 GB · 30 days</div><ul><li>Your own sticky mobile IP</li><li>France / Guadeloupe (Orange)</li><li>Self-rotating egress</li><li>No KYC · same-day delivery</li></ul><a class="btn buy" href="#order">Rent this port</a></div>
-    <div class="plan"><span class="name">Metered</span><div class="price">$5<span>/GB</span></div><div class="gb">pay as you go · key valid 30 days</div><ul><li>1 GB $5 · 5 GB $22</li><li>Residential from $3/GB too</li><li>For bursty / low-volume needs</li></ul><a class="btn alt buy" href="#order">Buy GB</a></div>
+    <div class="plan"><span class="name">7-day test port</span><div class="price">$39</div><div class="gb">up to 25 GB · 7 days</div><ul><li>Qualify the exit first</li><li>Full mobile IP, no limits on use</li><li>Crypto payment, instant</li></ul><a class="btn alt buy" href="#order">Start the test</a></div>
+    <div class="plan feat"><span class="name">Dedicated port <span class="badge">Most popular</span></span><div class="price">$129<span>/mo</span></div><div class="gb">up to 100 GB · 30 days</div><ul><li>Your own sticky mobile IP</li><li>France / Guadeloupe (Orange)</li><li>Self-rotating egress</li><li>No KYC · same-day delivery</li></ul><a class="btn buy" href="#order">Rent this port</a></div>
+    <div class="plan"><span class="name">Metered</span><div class="price">$7<span>/GB</span></div><div class="gb">pay as you go · key valid 30 days</div><ul><li>1 GB $5 · 5 GB $22</li><li>Residential from $3/GB too</li><li>For bursty / low-volume needs</li></ul><a class="btn alt buy" href="#order">Buy GB</a></div>
   </div>
 </section>
 
