@@ -22,7 +22,6 @@ import proxyRoutes, { proxyTierGuard } from "./routes/proxy.js";
 import smsRoutes from "./routes/sms.js";
 import mcpRoutes from "./routes/mcp.js";
 import demoRoutes from "./routes/demo.js";
-import freeRoutes from "./routes/free.js";
 import dataRoutes from "./routes/data.js";
 import frdataRoutes from "./routes/frdata.js";
 import compositeRoutes from "./routes/composite.js";
@@ -108,9 +107,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Alternatives par route payante : version /partial moins chère (si elle existe au
-// catalogue) + essai gratuit /free/* (si servi). Construit une fois au démarrage.
-const FREE_ROUTES = new Set(["entreprise", "entreprise-360", "estimation-immo", "bilans", "score-entreprise", "analyse-immo", "kyb"]);
+// Alternatives par route payante : version /partial moins chère, si elle existe au
+// catalogue. Construit une fois au démarrage. Les échantillons /free/* ont été
+// supprimés le 2026-08-03 ; ne subsistent que les sondes de disponibilité
+// (/free/proxy/status, /free/sms/status), qui ne livrent aucune donnée vendable.
 const ALTERNATIVES = (() => {
   const priceOf = Object.fromEntries(CATALOG.map((e) => [e.route.split(" ")[1], e.price]));
   const out = {};
@@ -121,8 +121,6 @@ const ALTERNATIVES = (() => {
     if (priceOf[`${path}/partial`]) {
       alt.cheaper_lite_version = { url: `${path}/partial`, price: priceOf[`${path}/partial`], note: "key decision fields only" };
     }
-    const name = path.replace("/v1/fr/", "").replace("/v1/", "");
-    if (FREE_ROUTES.has(name)) alt.free_trial = { url: `/free/${name}`, note: "limited sample, no payment" };
     if (Object.keys(alt).length) out[path] = alt;
   }
   return out;
@@ -228,7 +226,6 @@ app.use(mcpRoutes);
 app.use(demoRoutes);
 app.use(landingRoutes);
 app.use(rentRoutes);
-app.use(freeRoutes);
 
 // ===== Accès par clé API interne (canaux non-x402 : Apify, RapidAPI…) =====
 // Une clé valide fait sauter le paywall x402 : le canal (Apify) facture l'utilisateur
@@ -260,7 +257,8 @@ app.use((req, res, next) => {
 // et « /v1/llm/pro » passaient au travers. Sur les 9 appels offerts depuis le 01/08, les 9
 // tombaient sur ces deux-là — soit 100 % du gratuit brûlait exactement les deux ressources
 // payantes (quota Serper, crédits LLM) que l'exclusion devait protéger.
-// Les aperçus /free/* restent en place : ce sont des échantillons bornés, pas un quota.
+// Les échantillons /free/* ont été supprimés eux aussi ; seules restent les sondes de
+// disponibilité avant achat (/free/proxy/status, /free/sms/status).
 
 // ===== Bundles proxy : on ne demande le paiement que si la sortie est vérifiée =====
 // (le règlement x402 précède le handler ; sans cette garde, un tier indisponible
