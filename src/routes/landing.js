@@ -80,14 +80,14 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:30px 0 60px;colo
 
 <section>
   <h2>Try it in 10 seconds</h2>
-  <p class="muted">Every client gets 1 free call/day on data routes ≤ $0.01 — no wallet needed.</p>
-  <pre><span class="c"># Free taste — worldwide weather</span>
-curl "https://api.x-402.online/v1/weather?city=Tokyo"
+  <p class="muted">Every /v1 route answers 402 with machine-readable payment terms. Settle with any x402 client — USDC on Base or Solana.</p>
+  <pre><span class="c"># Mobile 4G proxy — a real carrier IP (Orange, AS16028), the hardest class to block</span>
+curl "https://api.x-402.online/v1/mobile-proxy/1gb"
 
-<span class="c"># French company lookup (SIREN, officers, status)</span>
-curl "https://api.x-402.online/v1/fr/entreprise?q=Decathlon"
+<span class="c"># Verify the mobile exit before you buy — carrier, ASN, country, uptime</span>
+curl "https://api.x-402.online/free/proxy/status"
 
-<span class="c"># Structured extract — URL + fields → JSON (paid, residential)</span>
+<span class="c"># Structured extract — URL + fields → JSON (residential IP)</span>
 curl "https://api.x-402.online/v1/extract-structured?url=https://books.toscrape.com&fields=title,price"</pre>
 </section>
 

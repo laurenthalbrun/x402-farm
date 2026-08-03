@@ -59,7 +59,7 @@ router.get("/llms.txt", (req, res) => {
     "## Cheapest LLM + search on x402",
     "POST /v1/llm {\"prompt\":\"…\"} ($0.002, DeepSeek v4) — among the lowest $/call anywhere.",
     "POST /v1/llm/pro ($0.006) for hard reasoning. GET /v1/search?q= ($0.003) real Google results.",
-    "GET /v1/search/news?q= ($0.003) fresh headlines. First daily call is free on all of these.",
+    "GET /v1/search/news?q= ($0.003) fresh headlines.",
     "",
     "## Agent workflow — FR company due diligence in 3 calls (~$0.16)",
     "1. GET /v1/fr/kyb/partial?q=<name> ($0.03) -> verdict + red-flag count. Stop if CONFORME and 0 flags.",

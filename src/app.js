@@ -51,7 +51,6 @@ import selogerRoutes from "./routes/seloger.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
-import { buildTrialEligible, grantFreeCall } from "./lib/trial.js";
 
 const PORT = Number(process.env.PORT || 3402);
 const PAY_TO = process.env.PAY_TO || "";
@@ -156,7 +155,7 @@ app.use((req, res, next) => {
     // jamais déduit du seul statut 2xx (les HEAD passaient pour payés).
     const settled = !!(res.getHeader("payment-response") || res.getHeader("x-payment-response"));
     const paid = price !== undefined && settled && res.statusCode >= 200 && res.statusCode < 300;
-    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") || req._freeTrial === true || req._apiKey === true });
+    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") || req._apiKey === true });
   });
   next();
 });
@@ -174,11 +173,11 @@ app.get("/", (_req, res) =>
       "Real Google web + news search from $0.003/call",
       "Residential-IP web scraping (extract/render/screenshot/PDF) — rare on x402",
       "Deepest French company data (INPI, BODACC, KYB) + UK/US filings",
-      "1 free call/day per client, all routes GET+POST, progressive /partial pricing",
+      "All routes accept GET and POST, progressive /partial pricing",
     ],
     quickstart: {
-      cheapest_probe: "POST /v1/llm {\"prompt\":\"...\"} — $0.002, or GET /v1/weather?city=Paris — $0.003",
-      note: "All /v1 routes accept GET and POST. First daily call is free. Each 402 lists cheaper alternatives.",
+      cheapest_probe: "POST /v1/llm {\"prompt\":\"...\"} — $0.002, or GET /v1/search?q=x402 — $0.003",
+      note: "All /v1 routes accept GET and POST. Each 402 lists cheaper alternatives.",
       docs: "/llms.txt",
     },
     endpoints: CATALOG,
@@ -253,19 +252,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===== 1er appel gratuit / jour / client (routes data <= $0.01) =====
-const TRIAL_ELIGIBLE = buildTrialEligible(CATALOG);
-app.use(async (req, res, next) => {
-  if (req.method !== "GET" && req.method !== "POST") return next();
-  if (!TRIAL_ELIGIBLE.has(req.path)) return next();
-  const hasPayment = req.get("payment-signature") || req.get("x-payment");
-  if (hasPayment) return next(); // il paie : ne pas gaspiller son quota gratuit
-  if (await grantFreeCall(req)) {
-    res.set("x-free-trial", "1 free call per client per day (data, search, LLM <= $0.01) - this one was on us");
-    req._freeTrial = true; // fait sauter le paywall ci-dessous, la route sert la donnée normalement
-  }
-  next();
-});
+// ===== Essai gratuit SUPPRIMÉ (2026-08-03) =====
+// Le « 1er appel offert par jour et par IP » est retiré : plus rien n'est offert sur /v1.
+// Deux raisons. (1) Conversion mesurée à 0,2 % (937 IP servies en 7 j, 2 conversions) —
+// le gratuit attirait des scanners, pas des acheteurs. (2) La liste d'exclusion comparait
+// en ÉGALITÉ STRICTE : « /v1/search » et « /v1/llm » étaient exclus, mais « /v1/search/news »
+// et « /v1/llm/pro » passaient au travers. Sur les 9 appels offerts depuis le 01/08, les 9
+// tombaient sur ces deux-là — soit 100 % du gratuit brûlait exactement les deux ressources
+// payantes (quota Serper, crédits LLM) que l'exclusion devait protéger.
+// Les aperçus /free/* restent en place : ce sont des échantillons bornés, pas un quota.
 
 // ===== Bundles proxy : on ne demande le paiement que si la sortie est vérifiée =====
 // (le règlement x402 précède le handler ; sans cette garde, un tier indisponible
@@ -382,7 +377,7 @@ if (PAY_TO) {
     for (const w of descStarved) console.error(`       ${w.route} — overhead ${w.overhead} o, il ne reste que ${w.budget} o`);
   }
   const pm = paymentMiddleware(routes, resourceServer);
-  app.use((req, res, next) => (req._freeTrial || req._apiKey ? next() : pm(req, res, next)));
+  app.use((req, res, next) => (req._apiKey ? next() : pm(req, res, next)));
   console.log(`[x402] paywall ON${CHALLENGE ? " (CHALLENGE Base+Algorand via GoPlausible)" : ""} — [${NETWORKS.join(", ")}] via ${facilitatorConfig.url}`);
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
