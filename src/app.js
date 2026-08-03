@@ -313,34 +313,70 @@ if (PAY_TO) {
   const payToFor = (n) => (isAlgo(n) ? ALGO_PAY_TO : isSol(n) ? SOL_PAY_TO : PAY_TO);
   // Tolérance de méthode : les agents sondent en GET des routes POST (24 visiteurs/72 h
   // sur extract/render/screenshot) et inversement. Chaque route /v1 est payable en GET ET POST.
+  // ⚠️ La description part DANS le payload de paiement, et le facilitateur CDP rejette le
+  // payload au-delà d'une certaine taille (« 'paymentPayload' is invalid »). La falaise a été
+  // encadrée le 2026-08-03 : 1931 o encaisse, ~2025 o n'a JAMAIS encaissé.
+  //
+  // Un plafond FIXE sur la description (l'ancien `> 280`) ne suffit pas : il borne les ~18 %
+  // du payload que pèse la desc et laisse libre les ~62 % que pèse l'extension Bazaar (961 o
+  // sur /v1/maps, 825 o sur /v1/guard). Deux routes de même longueur de desc peuvent donc
+  // tomber de part et d'autre de la limite, et une route franchit la falaise EN SILENCE :
+  // elle continue de répondre 402, elle n'encaisse simplement plus jamais.
+  //
+  // On calcule donc ce qui RESTE pour la description une fois tout le reste assemblé.
+  // Le texte complet reste servi par la page d'accueil, llms.txt et .well-known (non payants).
+  const PAYLOAD_CEILING = Number(process.env.X402_PAYLOAD_CEILING || 1900);
+  const HEADER_OVERHEAD = 460; // enveloppe ajoutée par le middleware (mesurée entre 394 et 452 o)
+  const DESC_FLOOR = 80; // en dessous, la description ne vend plus rien
+  const descTrimmed = [];
+  const descStarved = [];
   const routes = Object.fromEntries(
     CATALOG.flatMap((e) => {
       const bz = e.bazaar
         ? { ...e.bazaar, discoverable: true, ...(CHALLENGE ? { tags: [...(e.bazaar.tags || []), "x402-global-challenge"] } : {}) }
         : null;
-      // ⚠️ La description part DANS le payload de paiement, et le facilitateur CDP
-      // rejette le payload au-delà d'une certaine taille (« 'paymentPayload' is invalid »).
-      // Constaté le 2026-07-30 : les routes à desc >~400 car. n'ont JAMAIS encaissé
-      // (guard 629, maps 436, qualified-leads 417 : 0 paiement pour 1139 paywalls) alors
-      // que les courtes passent. On borne donc ici ; le texte complet reste servi par la
-      // page d'accueil, llms.txt et .well-known (qui, eux, ne paient rien).
-      const payDesc = e.desc.length > 280 ? e.desc.slice(0, 277).replace(/[\s,;:.-]+$/, "") + "…" : e.desc;
-      const val = {
-        accepts: NETWORKS.map((n) => ({
-          scheme: "exact",
-          price: e.price,
-          network: n,
-          payTo: payToFor(n),
-          ...(isAlgo(n) ? { extra: { asset: USDC_MAINNET_ASA_ID } } : {}),
-        })),
-        description: payDesc,
-        ...(bz ? { extensions: declareDiscoveryExtension(bz) } : {}),
-      };
+      const accepts = NETWORKS.map((n) => ({
+        scheme: "exact",
+        price: e.price,
+        network: n,
+        payTo: payToFor(n),
+        ...(isAlgo(n) ? { extra: { asset: USDC_MAINNET_ASA_ID } } : {}),
+      }));
+      const extensions = bz ? declareDiscoveryExtension(bz) : null;
+      // Tout le payload SAUF la description, plus l'enveloppe du middleware.
+      const overhead =
+        Buffer.byteLength(JSON.stringify({ accepts, description: "", ...(extensions ? { extensions } : {}) })) +
+        HEADER_OVERHEAD;
+      const budget = PAYLOAD_CEILING - overhead;
+      let payDesc = e.desc;
+      if (Buffer.byteLength(payDesc) > budget) {
+        if (budget < DESC_FLOOR) {
+          // L'extension seule mange le budget : la desc n'y changera rien, c'est le schéma
+          // bazaar de cette route qu'il faut alléger. On le signale au lieu de le subir.
+          descStarved.push({ route: e.route, budget, overhead });
+          payDesc = e.desc.slice(0, 60).replace(/[\s,;:.-]+$/, "") + "…";
+        } else {
+          // Troncature sûre en OCTETS (les accents comptent double en UTF-8).
+          let cut = Math.min(e.desc.length, budget);
+          while (cut > 0 && Buffer.byteLength(e.desc.slice(0, cut)) > budget - 3) cut--;
+          payDesc = e.desc.slice(0, cut).replace(/[\s,;:.-]+$/, "") + "…";
+          descTrimmed.push({ route: e.route, from: e.desc.length, to: payDesc.length, budget });
+        }
+      }
+      const val = { accepts, description: payDesc, ...(extensions ? { extensions } : {}) };
       const [method, path] = e.route.split(" ");
       const other = method === "GET" ? "POST" : "GET";
       return [[e.route, val], [`${other} ${path}`, val]];
     })
   );
+  if (descTrimmed.length) {
+    console.log(`[x402] ${descTrimmed.length} description(s) bridée(s) pour tenir sous ${PAYLOAD_CEILING} o de payload :`);
+    for (const w of descTrimmed) console.log(`       ${w.route} — ${w.from} → ${w.to} car. (budget ${w.budget} o)`);
+  }
+  if (descStarved.length) {
+    console.error(`[x402] ⛔ ${descStarved.length} route(s) dont l'EXTENSION seule sature le payload — allège leur schéma bazaar, sinon elles n'encaisseront pas :`);
+    for (const w of descStarved) console.error(`       ${w.route} — overhead ${w.overhead} o, il ne reste que ${w.budget} o`);
+  }
   const pm = paymentMiddleware(routes, resourceServer);
   app.use((req, res, next) => (req._freeTrial || req._apiKey ? next() : pm(req, res, next)));
   console.log(`[x402] paywall ON${CHALLENGE ? " (CHALLENGE Base+Algorand via GoPlausible)" : ""} — [${NETWORKS.join(", ")}] via ${facilitatorConfig.url}`);
