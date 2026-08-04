@@ -140,7 +140,7 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
   } catch (e) {
     return res.status(502).json({ error: "lead_source_failed", detail: String(e).slice(0, 140) });
   }
-  if (!businesses.length) return res.status(502).json({ error: "no_businesses", query: { activity, location } });
+  if (!businesses.length) return res.status(404).json({ error: "no_businesses", query: { activity, location } });
 
   const leads = await mapLimit(businesses, 5, async (b) => {
     const cp = (String(b.address || "").match(/\b(\d{5})\b/) || [])[1] || null;

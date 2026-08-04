@@ -255,7 +255,7 @@ router.all("/v1/fr/valeurs-foncieres", async (req, res) => {
       }
       return null;
     });
-    if (!data) return res.status(502).json({ error: "no_dvf_data", hint: "no recorded sales for this commune in 2024-2022, or the Cerema upstream is down" });
+    if (!data) return res.status(404).json({ error: "no_dvf_data", hint: "no recorded sales for this commune in 2024-2022, or the Cerema upstream is down" });
     res.json(data);
   } catch (e) {
     res.status(502).json({ error: String(e.message || e).slice(0, 120) });

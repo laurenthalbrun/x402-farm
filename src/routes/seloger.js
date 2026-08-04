@@ -73,7 +73,7 @@ router.all("/v1/fr/seloger", async (req, res) => {
     const r = await fetch(zr, { signal: AbortSignal.timeout(75000) });
     if (!r.ok) return res.status(502).json({ error: "unblocker_failed", status: r.status, detail: (await r.text()).slice(0, 160) });
     const listings = parseCards(await r.text()).slice(0, max);
-    if (!listings.length) return res.status(502).json({ error: "no_listings", query: { city, cp, type }, hint: "SeLoger layout may have changed" });
+    if (!listings.length) return res.status(404).json({ error: "no_listings", query: { city, cp, type }, hint: "SeLoger layout may have changed" });
     const ppm2 = listings.map((l) => l.pricePerM2).filter(Boolean);
     const prices = listings.map((l) => l.price).filter(Boolean);
     res.json({

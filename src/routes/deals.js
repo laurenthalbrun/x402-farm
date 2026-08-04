@@ -83,7 +83,7 @@ router.all("/v1/fr/biens-sous-cotes", async (req, res) => {
       listings: listings.slice(0, max),
     });
   }
-  if (!listings.length) return res.status(502).json({ error: "no_listings", detail: immoR?.error || null });
+  if (!listings.length) return res.status(404).json({ error: "no_listings", detail: immoR?.error || null });
 
   const soldMedian = dvf.median;
   const scored = listings

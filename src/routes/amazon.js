@@ -145,12 +145,15 @@ router.all("/v1/amazon", async (req, res) => {
   try {
     if (asin) {
       const product = await scrapeProduct(String(asin), exitMode(p));
-      if (!product.title) return res.status(502).json({ error: "product_not_found", hint: "check the ASIN / URL", ...blockHint(req) });
+      // 404 et non 502 : l'ASIN est absent de ce domaine, ce n'est pas une panne.
+      // En 502, Cloudflare remplace la réponse par sa page HTML de passerelle et
+      // l'appelant voit « API cassée » là où il fallait lire « produit introuvable ».
+      if (!product.title) return res.status(404).json({ error: "product_not_found", hint: "check the ASIN / URL", ...blockHint(req) });
       return res.json({ source: DOMAIN, mode: "product", exit: exitMode(p) || "residential", product: { ...product, priceValue: priceVal(product.price) } });
     }
     if (q) {
       const results = (await scrapeSearch(String(q), max, exitMode(p))).map((r) => ({ ...r, priceValue: priceVal(r.price) }));
-      if (!results.length) return res.status(502).json({ error: "no_results", query: q, ...blockHint(req) });
+      if (!results.length) return res.status(404).json({ error: "no_results", query: q, ...blockHint(req) });
       return res.json({ source: DOMAIN, mode: "search", exit: exitMode(p) || "residential", query: q, count: results.length, results });
     }
     return res.status(400).json({ error: "missing_input", hint: "provide ?asin= (or ?url=) for a product, or ?q= for a search" });

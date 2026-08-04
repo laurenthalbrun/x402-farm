@@ -68,7 +68,7 @@ router.all("/v1/fr/immo", async (req, res) => {
   if (!city) return res.status(400).json({ error: "missing_city", hint: "provide ?city= (and optional ?cp=, ?type=achat|location)" });
   try {
     const listings = await scrapeBienici(String(city), cp, type, max, exitMode(p));
-    if (!listings.length) return res.status(502).json({ error: "no_listings", query: { city, cp, type }, ...blockHint(req) });
+    if (!listings.length) return res.status(404).json({ error: "no_listings", query: { city, cp, type }, ...blockHint(req) });
     const ppm2 = listings.map((l) => l.pricePerM2).filter(Boolean);
     const prices = listings.map((l) => l.price).filter(Boolean);
     res.json({

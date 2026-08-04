@@ -226,7 +226,7 @@ router.all("/v1/maps", async (req, res) => {
   if (!q) return res.status(400).json({ error: "missing_query", hint: "provide ?q= (business type / keyword) and optional ?location=" });
   try {
     const { results, enriched } = await scrapeMaps(String(q), String(location), max, { details, detailsMax, exit: exitMode(p) });
-    if (!results.length) return res.status(502).json({ error: "no_results", query: { q, location }, ...blockHint(req) });
+    if (!results.length) return res.status(404).json({ error: "no_results", query: { q, location }, ...blockHint(req) });
     res.json({
       source: "google_maps",
       exit: exitMode(p) || "residential",
