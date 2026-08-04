@@ -2,6 +2,7 @@ import { Router } from "express";
 import { CATALOG } from "../catalog.js";
 import { ICON_512, ICON_192, ICON_180 } from "./dashboard-icons.js";
 import { recettesTempo, TEMPO_ACTIF } from "../lib/tempo.js";
+import { visibiliteBazaar } from "../lib/visibilite.js";
 
 // Centre de contrôle temps réel (token) : plein écran, poll JSON toutes les 6 s,
 // ticker, feed live, graphes minute/heure, statut des sous-systèmes.
@@ -137,7 +138,7 @@ function auth(req, res) {
 // ---------- Endpoint JSON (pollé par le front) ----------
 router.get("/dashboard/data", async (req, res) => {
   if (!auth(req, res)) return;
-  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status, tempo] = await Promise.all([
+  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status, tempo, visibilite] = await Promise.all([
     sb("api_revenue_by_route", "?order=revenue_usd.desc"),
     sb("api_daily", "?order=jour.desc&limit=15"),
     sb("api_by_country", ""),
@@ -149,6 +150,7 @@ router.get("/dashboard/data", async (req, res) => {
     usdcBalance(process.env.PAY_TO || "0x0"),
     subsystems(),
     recettesTempo(process.env.TEMPO_PAY_TO),
+    visibiliteBazaar(),
   ]);
   const radar = await sb("radar_latest", "?limit=12");
   const apify = await apifyChannel();
@@ -162,6 +164,7 @@ router.get("/dashboard/data", async (req, res) => {
     now: Date.now(),
     balance: bal, eur: bal != null ? bal * EUR : null,
     tempo: TEMPO_ACTIF() ? { ...tempo, payTo: process.env.TEMPO_PAY_TO } : null,
+    visibilite,
     payTo: process.env.PAY_TO || null, network: process.env.NETWORK || null,
     cumulative: {
       revenue: list.reduce((s, x) => s + Number(x.revenue_usd || 0), 0),
@@ -397,6 +400,7 @@ footer a{color:var(--blue);text-decoration:none}
 
 <div class="kpis">
   <div class="kpi hero" id="k-bal"><div class="lbl">Solde wallet</div><div class="v num" id="v-bal">—</div><div class="s" id="s-bal">Base · USDC</div></div>
+  <div class="kpi" id="k-vis"><div class="lbl">Visibilité Bazaar</div><div class="v num" id="v-vis">—</div><div class="s" id="s-vis">rang sur les requêtes clés</div></div>
   <div class="kpi" id="k-tempo" style="display:none"><div class="lbl">Encaissé sur Tempo</div><div class="v num" id="v-tempo">—</div><div class="s" id="s-tempo">en attente du premier règlement</div></div>
   <div class="kpi" id="k-rev"><div class="lbl">Revenu aujourd'hui</div><div class="v num" id="v-rev">—</div><div class="delta" id="d-rev"></div><div class="s" id="s-rev"></div></div>
   <div class="kpi"><div class="lbl">Revenu cumulé</div><div class="v num" id="v-cum">—</div><div class="s" id="s-cum"></div></div>
@@ -770,6 +774,19 @@ function refresh(){
 
       // Tempo : la tuile n'apparaît que si le réseau est raccordé. Tant qu'aucun
       // règlement n'est tombé, on le dit plutôt que d'afficher un zéro muet.
+      if (d.visibilite) {
+        var v = d.visibilite;
+        $("v-vis").textContent = v.classees + "/" + v.surTotal;
+        var det = v.rangs.map(function (r) {
+          return r.requete.split(" ").slice(0, 2).join(" ") + " " + (r.rang ? "#" + r.rang : "—");
+        }).join(" · ");
+        $("s-vis").textContent = v.erreur ? "indisponible" : det;
+        $("s-vis").title = v.rangs.map(function (r) {
+          return r.requete + " : " + (r.rang ? "rang " + r.rang + "/" + r.sur : "absent des 20 premiers")
+            + (r.tete ? " — tête : " + r.tete : "");
+        }).join("\n");
+      }
+
       if (d.tempo) {
         $("k-tempo").style.display = "";
         countUp($("v-tempo"), d.tempo.total || 0, 4);
