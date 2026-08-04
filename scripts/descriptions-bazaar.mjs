@@ -17,7 +17,7 @@
 export const DESCRIPTIONS = {
   /* ------------------------------------------------------------- réseau */
   "GET /v1/proxy/1gb":
-    "Buy 1 GB of residential proxy bandwidth and receive a ready-to-use proxy key in the form http://buyer:KEY@host, valid for 30 days and metered per gigabyte. Your HTTP and HTTPS traffic exits through a real residential IP address, which reaches sites that block datacenter ranges outright. Built for agents, crawlers and scrapers that need a trustworthy exit point rather than a cloud IP. No account, no subscription, no minimum commitment: pay once, use the key until the gigabyte is consumed.",
+    "Buy 1 GB of residential proxy bandwidth for scraping and agent traffic, delivered as a ready-to-use key in the form http://buyer:KEY@host, valid 30 days and metered per gigabyte. Traffic exits through a real residential IP, reaching sites that reject datacenter ranges outright. Built for crawlers and autonomous agents that need a trustworthy exit rather than a cloud address. No account, no subscription, no minimum: pay once, use the key until the gigabyte is spent.",
 
   "GET /v1/proxy/5gb":
     "Buy 5 GB of residential proxy bandwidth at 2.40 USD per gigabyte and receive a proxy key valid for 30 days. Traffic exits through a real residential IP address, reaching sites that reject datacenter ranges. Cheaper per gigabyte than Browserbase at 8 USD or Bright Data at comparable tiers, with no account to open and no monthly commitment. Suited to agents running sustained crawling or data-collection jobs where a datacenter IP would be blocked on the first request.",
@@ -38,7 +38,7 @@ export const DESCRIPTIONS = {
     "Buy 5 GB of mobile proxy bandwidth on a real 4G/5G carrier IP address (Orange, France and Guadeloupe, AS16028), delivered as a proxy key valid for 30 days. Mobile addresses are shared by thousands of subscribers, making them the hardest class of IP to block without hitting legitimate users. Carrier, ASN and uptime verified live at purchase. Suited to agents running sustained collection against sites that already reject residential exits.",
 
   "GET /v1/proxy/mobile/1gb":
-    "Buy 1 GB of mobile proxy bandwidth on a real 4G/5G carrier IP address (Orange, France and Guadeloupe, AS16028) and receive a proxy key valid for 30 days, metered per gigabyte. Because mobile addresses are shared by thousands of subscribers, blocking one means blocking real customers, which is why they survive where residential and datacenter exits fail. Carrier and ASN verified live at purchase and returned with the key.",
+    "Buy 1 GB of rotating mobile proxy bandwidth for scraping and agent traffic, on a real 4G/5G carrier IP (Orange, France and Guadeloupe, AS16028). The carrier reassigns the address by itself: six distinct IPs observed within one hour, no rotation logic to write. Mobile addresses are shared by thousands of subscribers, so blocking one means blocking real customers, which is why they survive where residential and datacenter exits fail. Key valid 30 days, carrier and ASN verified live.",
 
   "GET /v1/proxy/mobile/5gb":
     "Buy 5 GB of mobile proxy bandwidth on a real 4G/5G carrier IP address (Orange, France and Guadeloupe, AS16028), delivered as a proxy key valid 30 days and metered per gigabyte. Mobile carrier IPs are shared by thousands of subscribers, so sites cannot block them without cutting off real customers. Carrier, ASN and uptime verified live. For agents whose collection jobs are already failing on residential exits.",
