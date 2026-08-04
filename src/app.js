@@ -50,6 +50,7 @@ import selogerRoutes from "./routes/seloger.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
+import { mppActif, verifierPaiementMpp, entetesDefi, MPP } from "./lib/mpp.js";
 
 const PORT = Number(process.env.PORT || 3402);
 const PAY_TO = process.env.PAY_TO || "";
@@ -375,8 +376,49 @@ if (PAY_TO) {
     for (const w of descStarved) console.error(`       ${w.route} — overhead ${w.overhead} o, il ne reste que ${w.budget} o`);
   }
   const pm = paymentMiddleware(routes, resourceServer);
-  app.use((req, res, next) => (req._apiKey ? next() : pm(req, res, next)));
+
+  // ---- Machine Payments Protocol, en amont de x402 --------------------
+  // Deux rôles, dans cet ordre :
+  //  1. si l'agent présente un justificatif MPP (carte via Stripe, ou
+  //     stablecoin sur Tempo), on encaisse et on court-circuite x402 ;
+  //  2. sinon, on annonce les moyens MPP dans les en-têtes du 402 que x402
+  //     s'apprête à écrire — le corps JSON x402, lui, n'est pas touché.
+  // Une même réponse 402 parle donc les deux protocoles.
+  app.use(async (req, res, next) => {
+    if (req._apiKey || !mppActif()) return next();
+    const prix = PRICE_BY_PATH[req.path];
+    if (!prix) return next();
+
+    const { paye, erreur } = await verifierPaiementMpp(req, prix);
+    if (paye) {
+      req._mppPaid = true;
+      return next();
+    }
+    if (erreur) console.warn(`[mpp] ${req.path} — vérification impossible : ${erreur}`);
+
+    // Le 402 n'est pas encore écrit : on greffe les en-têtes au moment où il part.
+    const defis = entetesDefi(prix, `${req.protocol}://${req.get("host")}${req.path}`);
+    if (defis.length) {
+      const writeHead = res.writeHead.bind(res);
+      res.writeHead = (code, ...reste) => {
+        if (code === 402) for (const d of defis) res.append("WWW-Authenticate", d);
+        return writeHead(code, ...reste);
+      };
+    }
+    next();
+  });
+
+  app.use((req, res, next) => (req._apiKey || req._mppPaid ? next() : pm(req, res, next)));
   console.log(`[x402] paywall ON${CHALLENGE ? " (CHALLENGE Base+Algorand via GoPlausible)" : ""} — [${NETWORKS.join(", ")}] via ${facilitatorConfig.url}`);
+  if (mppActif()) {
+    const payables = Object.values(PRICE_BY_PATH).filter((p) => p >= MPP.MINIMUM_CARTE_USD).length;
+    console.log(
+      `[mpp]  paiement machine ON — ${payables}/${Object.keys(PRICE_BY_PATH).length} routes payables par carte ` +
+        `(minimum Stripe ${MPP.MINIMUM_CARTE_USD} $)${process.env.TEMPO_PAY_TO ? ", Tempo sur toutes" : ""}`
+    );
+  } else {
+    console.log("[mpp]  inactif — renseigne STRIPE_SECRET_KEY et/ou TEMPO_PAY_TO pour l'activer");
+  }
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
 }
