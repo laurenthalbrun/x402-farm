@@ -328,6 +328,10 @@ if (PAY_TO) {
   const DESC_FLOOR = 80; // en dessous, la description ne vend plus rien
   const descTrimmed = [];
   const descStarved = [];
+  const marges = [];
+  // Sous ce reste d'octets, la route est jugée en zone rouge : ajouter un
+  // réseau de paiement ou enrichir son exemple de sortie la ferait basculer.
+  const MARGE_ALERTE = Number(process.env.X402_MARGE_ALERTE || 150);
   const routes = Object.fromEntries(
     CATALOG.flatMap((e) => {
       const bz = e.bazaar
@@ -362,6 +366,10 @@ if (PAY_TO) {
         }
       }
       const val = { accepts, description: payDesc, ...(extensions ? { extensions } : {}) };
+      // Marge restante une fois la description en place. C'est elle qui dit à
+      // quelle distance de la falaise on navigue : une route qui la franchit
+      // continue de répondre 402 mais n'encaisse plus jamais, en silence.
+      marges.push({ route: e.route, marge: budget - Buffer.byteLength(payDesc) });
       const [method, path] = e.route.split(" ");
       const other = method === "GET" ? "POST" : "GET";
       return [[e.route, val], [`${other} ${path}`, val]];
@@ -374,6 +382,24 @@ if (PAY_TO) {
   if (descStarved.length) {
     console.error(`[x402] ⛔ ${descStarved.length} route(s) dont l'EXTENSION seule sature le payload — allège leur schéma bazaar, sinon elles n'encaisseront pas :`);
     for (const w of descStarved) console.error(`       ${w.route} — overhead ${w.overhead} o, il ne reste que ${w.budget} o`);
+  }
+
+  // Garde-fou : on ne découvre pas un dépassement dans les logs de production,
+  // on le voit au démarrage. Le seuil se règle par X402_MARGE_ALERTE.
+  marges.sort((a, b) => a.marge - b.marge);
+  const rouges = marges.filter((m) => m.marge < 0);
+  const oranges = marges.filter((m) => m.marge >= 0 && m.marge < MARGE_ALERTE);
+  if (rouges.length) {
+    console.error(`[x402] ⛔ ${rouges.length} route(s) AU-DELÀ du plafond de ${PAYLOAD_CEILING} o — elles répondront 402 sans jamais encaisser :`);
+    for (const m of rouges) console.error(`       ${m.route} — dépassement de ${-m.marge} o`);
+  }
+  if (oranges.length) {
+    console.warn(`[x402] ⚠ ${oranges.length} route(s) à moins de ${MARGE_ALERTE} o de la falaise — ajouter un réseau ou enrichir leur exemple les ferait basculer. Les plus tendues :`);
+    for (const m of oranges.slice(0, 10)) console.warn(`       ${m.route} — ${m.marge} o de marge`);
+    if (oranges.length > 10) console.warn(`       … et ${oranges.length - 10} autres (node scripts/verifier-payloads.mjs pour la liste)`);
+  }
+  if (marges.length) {
+    console.log(`[x402] marge de payload — la plus faible : ${marges[0].marge} o sur ${marges[0].route}`);
   }
   const pm = paymentMiddleware(routes, resourceServer);
 
