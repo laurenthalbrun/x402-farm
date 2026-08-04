@@ -7,6 +7,14 @@
       "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
     }
   },
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "x402-farm.vercel.app" }],
+      "destination": "https://api.x-402.online/$1",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
