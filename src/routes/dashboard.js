@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { CATALOG } from "../catalog.js";
 import { ICON_512, ICON_192, ICON_180 } from "./dashboard-icons.js";
+import { recettesTempo, TEMPO_ACTIF } from "../lib/tempo.js";
 
 // Centre de contrôle temps réel (token) : plein écran, poll JSON toutes les 6 s,
 // ticker, feed live, graphes minute/heure, statut des sous-systèmes.
@@ -136,7 +137,7 @@ function auth(req, res) {
 // ---------- Endpoint JSON (pollé par le front) ----------
 router.get("/dashboard/data", async (req, res) => {
   if (!auth(req, res)) return;
-  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status] = await Promise.all([
+  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status, tempo] = await Promise.all([
     sb("api_revenue_by_route", "?order=revenue_usd.desc"),
     sb("api_daily", "?order=jour.desc&limit=15"),
     sb("api_by_country", ""),
@@ -147,6 +148,7 @@ router.get("/dashboard/data", async (req, res) => {
     sb("api_latency_24h", ""),
     usdcBalance(process.env.PAY_TO || "0x0"),
     subsystems(),
+    recettesTempo(process.env.TEMPO_PAY_TO),
   ]);
   const radar = await sb("radar_latest", "?limit=12");
   const apify = await apifyChannel();
@@ -159,6 +161,7 @@ router.get("/dashboard/data", async (req, res) => {
   res.json({
     now: Date.now(),
     balance: bal, eur: bal != null ? bal * EUR : null,
+    tempo: TEMPO_ACTIF() ? { ...tempo, payTo: process.env.TEMPO_PAY_TO } : null,
     payTo: process.env.PAY_TO || null, network: process.env.NETWORK || null,
     cumulative: {
       revenue: list.reduce((s, x) => s + Number(x.revenue_usd || 0), 0),
@@ -394,6 +397,7 @@ footer a{color:var(--blue);text-decoration:none}
 
 <div class="kpis">
   <div class="kpi hero" id="k-bal"><div class="lbl">Solde wallet</div><div class="v num" id="v-bal">—</div><div class="s" id="s-bal">Base · USDC</div></div>
+  <div class="kpi" id="k-tempo" style="display:none"><div class="lbl">Encaissé sur Tempo</div><div class="v num" id="v-tempo">—</div><div class="s" id="s-tempo">en attente du premier règlement</div></div>
   <div class="kpi" id="k-rev"><div class="lbl">Revenu aujourd'hui</div><div class="v num" id="v-rev">—</div><div class="delta" id="d-rev"></div><div class="s" id="s-rev"></div></div>
   <div class="kpi"><div class="lbl">Revenu cumulé</div><div class="v num" id="v-cum">—</div><div class="s" id="s-cum"></div></div>
   <div class="kpi" id="k-paid"><div class="lbl">Appels payés (jour)</div><div class="v num" id="v-paid">—</div><div class="delta" id="d-paid"></div></div>
@@ -763,6 +767,18 @@ function refresh(){
       // KPIs
       countUp($("v-bal"), d.balance, 4);
       $("s-bal").textContent = d.eur != null ? "\\u2248 " + fmt(d.eur, 2) + " \\u20AC · USDC on-chain · Base" : "Base · USDC";
+
+      // Tempo : la tuile n'apparaît que si le réseau est raccordé. Tant qu'aucun
+      // règlement n'est tombé, on le dit plutôt que d'afficher un zéro muet.
+      if (d.tempo) {
+        $("k-tempo").style.display = "";
+        countUp($("v-tempo"), d.tempo.total || 0, 4);
+        var st;
+        if (d.tempo.erreur) st = "chaîne injoignable — " + d.tempo.erreur;
+        else if (!d.tempo.reglements) st = "raccordé · aucun règlement sur " + (d.tempo.fenetre || 0).toLocaleString("fr-FR") + " blocs";
+        else st = d.tempo.reglements + " règlement(s) · " + (d.tempo.jetons || []).length + " jeton(s)";
+        $("s-tempo").textContent = st;
+      }
       var tRev = d.today ? Number(d.today.revenue_usd) : 0;
       var yRev = d.yesterday ? Number(d.yesterday.revenue_usd) : 0;
       countUp($("v-rev"), tRev, 3, "$");
