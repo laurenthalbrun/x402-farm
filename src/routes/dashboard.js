@@ -784,7 +784,11 @@ function refresh(){
         $("s-vis").title = v.rangs.map(function (r) {
           return r.requete + " : " + (r.rang ? "rang " + r.rang + "/" + r.sur : "absent des 20 premiers")
             + (r.tete ? " — tête : " + r.tete : "");
-        }).join("\n");
+        // Double antislash obligatoire : cette page est produite depuis un template
+        // literal, donc un simple retour-ligne échappé serait interprété À LA
+        // GÉNÉRATION et couperait la chaîne en deux — le script entier cesserait de
+        // parser et le tableau de bord resterait muet, sans la moindre erreur visible.
+        }).join("\\n");
       }
 
       if (d.tempo) {
