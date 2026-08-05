@@ -9,8 +9,8 @@ const SOL_PAYTO = "3tvSUk2R16rrL4eo2diYpMUsBH1wa3tafqJE44x3bVgs";
 
 const page = (contact) => `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>French & Guadeloupe 4G Mobile Proxy — for agencies, ad verification & French data</title>
-<meta name="description" content="Dedicated 4G mobile proxy on a real French / Guadeloupe (Orange, AS16028) carrier IP — a trusted, geo-accurate French mobile exit for social media agencies, ad verification, SERP tracking and French web scraping. Pay in USDC on Base or Solana. Instant, no signup.">
+<title>Dedicated 4G Mobile Port — France & Guadeloupe, one SIM per client</title>
+<meta name="description" content="Rent the mobile line, not a slice of a shared pool: one physical SIM on Orange (AS16028) in France or Guadeloupe, one client per port, a sticky IP for the whole term. For agencies, ad verification, SERP tracking and account work that a rotating pool breaks. Live-verified exit. Pay in USDC on Base or Solana.">
 <style>
 :root{--bg:#0a0e17;--card:#121826;--card2:#0d1320;--line:#1e2636;--fg:#e8edf6;--dim:#98a4b8;--faint:#6b7688;--acc:#00e58a;--acc2:#5b8cff;--warn:#f5b544;--mono:ui-monospace,"SF Mono",Menlo,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -54,9 +54,9 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
 </style></head><body>
 <div class="wrap">
 <header>
-  <p class="eyebrow">Real physical SIM · Orange AS16028 · Instant, no signup</p>
-  <h1>Dedicated <b>4G mobile proxy</b> on a real French &amp; Guadeloupe carrier IP.</h1>
-  <p class="sub">A trusted, geo-accurate French mobile exit — for agencies, ad verification, SERP tracking and data teams that need an IP sites actually trust. A rare France/DOM geo almost no provider offers.</p>
+  <p class="eyebrow">One physical SIM · one client · Orange AS16028 · no signup</p>
+  <h1>A <b>4G mobile line</b> rented to you alone — not a slice of a pool.</h1>
+  <p class="sub">Most providers sell you rotating access to a shared pool: your egress changes under you, and so does everyone else's. Here you rent the line itself. One physical SIM in France or Guadeloupe, one client on it, a sticky mobile IP that stays yours for the whole term.</p>
   <div class="live" id="live"><span class="dot" id="dot"></span><span id="livetxt">checking live exit…</span></div>
   <div class="cta">
     <a class="btn" href="#pricing">Get a dedicated port</a>
@@ -69,8 +69,8 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
   <p class="muted">Sites treat a mobile-carrier IP like a real person on their phone — a fundamentally different level of trust than a datacenter range gets.</p>
   <div class="grid">
     <div class="card"><div class="ic">🛡️</div><h3>Highest-trust IP class</h3><p>Sites treat a mobile-carrier IP like a real French subscriber — the reliability agencies and scrapers need to reach pages that block datacenter and cloud ranges.</p></div>
-    <div class="card"><div class="ic">🇫🇷</div><h3>Rare France / DOM geo</h3><p>A genuine Orange (AS16028) mobile IP in France / Guadeloupe. Everyone else ships US/EU-major carriers — this geo is almost impossible to find.</p></div>
-    <div class="card"><div class="ic">📱</div><h3>A physical SIM we run</h3><p>Not a resold pool. Your own dedicated, sticky port — one client per line, the stable consistent exit agencies and automation rely on.</p></div>
+    <div class="card"><div class="ic">📱</div><h3>The line, not the pool</h3><p>Large networks resell shared access to millions of addresses — you get whatever the rotation hands you, alongside everyone else on it. We run the SIM ourselves and rent it to one client at a time.</p></div>
+    <div class="card"><div class="ic">📌</div><h3>Sticky for the whole term</h3><p>The same egress for 7 or 30 days, so logged-in sessions, account work and long crawls stay coherent. Pool access can't promise that — it reassigns you by design.</p></div>
     <div class="card"><div class="ic">🛰️</div><h3>Live-verified exit</h3><p>Carrier / ASN / uptime probed every 10 minutes and returned with your key. If no mobile exit is up, you get a 503 — never a charge.</p></div>
   </div>
 </section>
@@ -87,11 +87,11 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
 
 <section id="pricing">
   <h2>Pricing</h2>
-  <p class="muted">Market rate for a dedicated mobile port is $99–$132/mo on metropolitan France (Orange/SFR/Bouygues). This one is a France <b>and Guadeloupe</b> carrier IP — a geo almost no provider sells.</p>
+  <p class="muted">Guadeloupe <i>pool</i> IPs are easy to find and cheap — SOAX, Databay and others sell them by the gigabyte, and if rotating shared access is what you need, buy theirs. What none of them rents is the line: a SIM held for one client, on one radio, keeping one address. Dedicated mobile ports run $99–$132/mo on metropolitan France; this is the same product on a Caribbean line, and we haven't found another operator running one.</p>
   <div class="plans">
     <div class="plan"><span class="name">7-day test port</span><div class="price">$39</div><div class="gb">up to 25 GB · 7 days</div><ul><li>Qualify the exit first</li><li>Full mobile IP, no limits on use</li><li>Crypto payment, instant</li></ul><a class="btn alt buy" href="#order">Start the test</a></div>
     <div class="plan feat"><span class="name">Dedicated port <span class="badge">Most popular</span></span><div class="price">$129<span>/mo</span></div><div class="gb">up to 100 GB · 30 days</div><ul><li>Your own sticky mobile IP</li><li>France / Guadeloupe (Orange)</li><li>Self-rotating egress</li><li>No KYC · same-day delivery</li></ul><a class="btn buy" href="#order">Rent this port</a></div>
-    <div class="plan"><span class="name">Metered</span><div class="price">$7<span>/GB</span></div><div class="gb">pay as you go · key valid 30 days</div><ul><li>1 GB $5 · 5 GB $22</li><li>Residential from $3/GB too</li><li>For bursty / low-volume needs</li></ul><a class="btn alt buy" href="#order">Buy GB</a></div>
+    <div class="plan"><span class="name">Metered <span class="badge">for agents</span></span><div class="price">$7<span>/GB</span></div><div class="gb">pay-per-call · key valid 30 days</div><ul><li>Bought and delivered by API, no human step</li><li>Shares the same dedicated line</li><li>For autonomous agents and one-off jobs</li></ul><a class="btn alt buy" href="#order">Buy GB</a></div>
   </div>
 </section>
 
