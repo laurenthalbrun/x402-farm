@@ -2,6 +2,7 @@ import { Router } from "express";
 import { CATALOG } from "../catalog.js";
 import { ICON_512, ICON_192, ICON_180 } from "./dashboard-icons.js";
 import { recettesTempo, TEMPO_ACTIF } from "../lib/tempo.js";
+import { gainsBoundless, BOUNDLESS_ACTIF } from "../lib/boundless.js";
 import { visibiliteBazaar } from "../lib/visibilite.js";
 
 // Centre de contrôle temps réel (token) : plein écran, poll JSON toutes les 6 s,
@@ -138,7 +139,7 @@ function auth(req, res) {
 // ---------- Endpoint JSON (pollé par le front) ----------
 router.get("/dashboard/data", async (req, res) => {
   if (!auth(req, res)) return;
-  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status, tempo, visibilite] = await Promise.all([
+  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status, tempo, boundless, visibilite] = await Promise.all([
     sb("api_revenue_by_route", "?order=revenue_usd.desc"),
     sb("api_daily", "?order=jour.desc&limit=15"),
     sb("api_by_country", ""),
@@ -150,6 +151,7 @@ router.get("/dashboard/data", async (req, res) => {
     usdcBalance(process.env.PAY_TO || "0x0"),
     subsystems(),
     recettesTempo(process.env.TEMPO_PAY_TO),
+    gainsBoundless(process.env.BOUNDLESS_PROVER, 1867),
     visibiliteBazaar(),
   ]);
   const radar = await sb("radar_latest", "?limit=12");
@@ -164,6 +166,7 @@ router.get("/dashboard/data", async (req, res) => {
     now: Date.now(),
     balance: bal, eur: bal != null ? bal * EUR : null,
     tempo: TEMPO_ACTIF() ? { ...tempo, payTo: process.env.TEMPO_PAY_TO } : null,
+    boundless: BOUNDLESS_ACTIF() ? boundless : null,
     visibilite,
     payTo: process.env.PAY_TO || null, network: process.env.NETWORK || null,
     cumulative: {
@@ -402,6 +405,7 @@ footer a{color:var(--blue);text-decoration:none}
   <div class="kpi hero" id="k-bal"><div class="lbl">Solde wallet</div><div class="v num" id="v-bal">—</div><div class="s" id="s-bal">Base · USDC</div></div>
   <div class="kpi" id="k-vis"><div class="lbl">Visibilité Bazaar</div><div class="v num" id="v-vis">—</div><div class="s" id="s-vis">rang sur les requêtes clés</div></div>
   <div class="kpi" id="k-tempo" style="display:none"><div class="lbl">Encaissé sur Tempo</div><div class="v num" id="v-tempo">—</div><div class="s" id="s-tempo">en attente du premier règlement</div></div>
+  <div class="kpi" id="k-bnd" style="display:none"><div class="lbl">Preuves ZK<br>Boundless</div><div class="v num" id="v-bnd">—</div><div class="s" id="s-bnd">gains en ETH, réglés à l'ordre</div></div>
   <div class="kpi" id="k-rev"><div class="lbl">Revenu aujourd'hui</div><div class="v num" id="v-rev">—</div><div class="delta" id="d-rev"></div><div class="s" id="s-rev"></div></div>
   <div class="kpi"><div class="lbl">Revenu cumulé</div><div class="v num" id="v-cum">—</div><div class="s" id="s-cum"></div></div>
   <div class="kpi" id="k-paid"><div class="lbl">Appels payés (jour)</div><div class="v num" id="v-paid">—</div><div class="delta" id="d-paid"></div></div>
@@ -799,6 +803,18 @@ function refresh(){
         else if (!d.tempo.reglements) st = "raccordé · aucun règlement sur " + (d.tempo.fenetre || 0).toLocaleString("fr-FR") + " blocs";
         else st = d.tempo.reglements + " règlement(s) · " + (d.tempo.jetons || []).length + " jeton(s)";
         $("s-tempo").textContent = st;
+      }
+
+      if (d.boundless) {
+        $("k-bnd").style.display = "";
+        var b = d.boundless;
+        countUp($("v-bnd"), b.gagneUsd != null ? b.gagneUsd : 0, 3, "$");
+        var sb;
+        if (b.erreur) sb = "Base injoignable — " + b.erreur;
+        else if (!b.gagneEth) sb = "prouveur suivi · aucune preuve payée depuis " + b.heuresObservees + " h";
+        else sb = b.gagneEth.toFixed(6) + " ETH"
+          + (b.parJourUsd != null ? " · rythme " + fmt(b.parJourUsd, 2) + " $/j" : " · rythme mesurable après 2 h");
+        $("s-bnd").textContent = sb;
       }
       var tRev = d.today ? Number(d.today.revenue_usd) : 0;
       var yRev = d.yesterday ? Number(d.yesterday.revenue_usd) : 0;
