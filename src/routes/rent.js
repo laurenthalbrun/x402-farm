@@ -60,7 +60,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
   <div class="live" id="live"><span class="dot" id="dot"></span><span id="livetxt">checking live exit…</span></div>
   <div class="cta">
     <a class="btn" href="#pricing">Get a dedicated port</a>
-    <a class="btn alt" href="#pricing">Try 7 days — $39</a>
+    <a class="btn alt" href="#pricing">Try 24 hours — $10</a>
   </div>
 </header>
 
@@ -89,6 +89,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
   <h2>Pricing</h2>
   <p class="muted">Guadeloupe <i>pool</i> IPs are easy to find and cheap — SOAX, Databay and others sell them by the gigabyte, and if rotating shared access is what you need, buy theirs. What none of them rents is the line: a SIM held for one client, on one radio, keeping one address. Dedicated mobile ports run $99–$132/mo on metropolitan France; this is the same product on a Caribbean line, and we haven't found another operator running one.</p>
   <div class="plans">
+    <div class="plan"><span class="name">24-hour trial</span><div class="price">$10</div><div class="gb">up to 5 GB · 1 day</div><ul><li>Test the exit on your own target</li><li>Same dedicated line, no shared pool</li><li>Delivered by API in seconds</li></ul><a class="btn alt buy" href="#order">Try it for a day</a></div>
     <div class="plan"><span class="name">7-day test port</span><div class="price">$39</div><div class="gb">up to 25 GB · 7 days</div><ul><li>Qualify the exit first</li><li>Full mobile IP, no limits on use</li><li>Crypto payment, instant</li></ul><a class="btn alt buy" href="#order">Start the test</a></div>
     <div class="plan feat"><span class="name">Dedicated port <span class="badge">Most popular</span></span><div class="price">$129<span>/mo</span></div><div class="gb">up to 100 GB · 30 days</div><ul><li>Your own sticky mobile IP</li><li>France / Guadeloupe (Orange)</li><li>Self-rotating egress</li><li>No KYC · same-day delivery</li></ul><a class="btn buy" href="#order">Rent this port</a></div>
     <div class="plan"><span class="name">Metered <span class="badge">for agents</span></span><div class="price">$7<span>/GB</span></div><div class="gb">pay-per-call · key valid 30 days</div><ul><li>Bought and delivered by API, no human step</li><li>Shares the same dedicated line</li><li>For autonomous agents and one-off jobs</li></ul><a class="btn alt buy" href="#order">Buy GB</a></div>

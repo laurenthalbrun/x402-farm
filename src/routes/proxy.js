@@ -91,7 +91,8 @@ export function proxyTierGuard() {
     const isPort = /^\/v1\/proxy\/port\//.test(req.path);
     const tier = isPort || /^\/v1\/(proxy\/mobile|mobile-proxy)\//.test(req.path) ? "mobile" : "residential";
     const gb = isPort
-      ? (/\/port\/30d$/.test(req.path) ? PORT_30D_GB : PORT_7D_GB)
+      ? (/\/port\/30d$/.test(req.path) ? PORT_30D_GB
+        : /\/port\/1d$/.test(req.path) ? PORT_1D_GB : PORT_7D_GB)
       : Number(/\/(\d+)gb$/.exec(req.path)?.[1] || 0);
     const state = await exitState();
 
@@ -143,6 +144,10 @@ export function proxyTierGuard() {
 // quand l'abonnement passe à 100 Go+. Vendre plus de Go qu'on n'en a serait mentir.
 const PORT_30D_GB = Number(process.env.PORT_30D_GB || 100);
 const PORT_7D_GB = Number(process.env.PORT_7D_GB || 25);
+// Porte d'entrée à 24 h. Sans elle, le ticket le plus bas est un test à 39 $ — trop
+// cher pour un acheteur qui veut seulement vérifier que l'IP passe sur SA cible.
+// Les opérateurs établis vendent tous à la journée ; c'est là que commence l'essai.
+const PORT_1D_GB = Number(process.env.PORT_1D_GB || 5);
 
 // ===== Exclusivité des ports dédiés =====
 // Un port est vendu comme « dedicated » : une radio = une IP concurrente = UN client.
@@ -258,6 +263,7 @@ router.get("/v1/mobile-proxy/5gb", issue(5, "mobile"));
 // changent — donc payable en x402 immédiatement, sans abonnement à gérer.
 router.get("/v1/proxy/port/30d", issue(PORT_30D_GB, "mobile", 30, true));
 router.get("/v1/proxy/port/7d", issue(PORT_7D_GB, "mobile", 7, true));
+router.get("/v1/proxy/port/1d", issue(PORT_1D_GB, "mobile", 1, true));
 
 // Free preview: lets an agent (or us) check what's actually serving before paying.
 router.get("/free/proxy/status", async (_req, res) => {
@@ -361,6 +367,7 @@ ${row("Logging", "timestamp, exit, key tail and target host:port. Never any payl
 
 <section><h2>Buying</h2><div class="card">
 <div class="price">
+  <span><b>$10</b> — 24-hour trial port, up to 5 GB</span><span class="mono">/v1/proxy/port/1d</span>
   <span><b>$39</b> — 7-day test port, up to 25 GB</span><span class="mono">/v1/proxy/port/7d</span>
   <span><b>$129</b> — dedicated port, 30 days, up to 100 GB</span><span class="mono">/v1/proxy/port/30d</span>
   <span><b>$7</b> — metered bundle, 1 GB, 30 days</span><span class="mono">/v1/mobile-proxy/1gb</span>
