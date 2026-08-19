@@ -31,7 +31,7 @@ command -v brew || echo "Installer Homebrew: https://brew.sh"
 
 ```bash
 cd ~
-git clone https://github.com/Ghost11777/x402-farm.git 2>/dev/null || (cd x402-farm && git pull)
+git clone https://github.com/laurenthalbrun/x402-farm.git 2>/dev/null || (cd x402-farm && git pull)
 cd ~/x402-farm
 ```
 

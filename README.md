@@ -59,4 +59,4 @@ Express · `@x402/express` (multi-network resource server) · Coinbase CDP facil
 
 ---
 
-*Built by [Laurent Halbrun](https://github.com/Ghost11777). USDC revenue wallet: [`0x2c87…735F`](https://basescan.org/address/0x2c871C2b8876dc35e9E19646FDa5ABF1cd27735F) — every sale is verifiable on-chain.*
+*Built by [Laurent Halbrun](https://github.com/laurenthalbrun). USDC revenue wallet: [`0x2c87…735F`](https://basescan.org/address/0x2c871C2b8876dc35e9E19646FDa5ABF1cd27735F) — every sale is verifiable on-chain.*

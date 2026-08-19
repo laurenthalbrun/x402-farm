@@ -103,7 +103,7 @@ button:disabled{opacity:.5;cursor:default}
   <div class="opts">
     🧰 npm: <code>npm i honeypot-guard</code> → <a href="https://www.npmjs.com/package/honeypot-guard" target="_blank">honeypot-guard</a><br>
     🤖 MCP: <code>npx -y x402farm-mcp</code> → <a href="https://smithery.ai/server/laurenthalbrun/x402farm" target="_blank">on Smithery</a><br>
-    🔌 REST / fiat: <a href="https://rapidapi.com/Ghost11777/api/residential-scraper-crypto-company-data" target="_blank">on RapidAPI</a> ·
+    🔌 REST / fiat: <a href="https://rapidapi.com/laurenthalbrun/api/residential-scraper-crypto-company-data" target="_blank">on RapidAPI</a> ·
     ⚡ x402 (USDC on Base): <a href="https://api.x-402.online" target="_blank">api.x-402.online</a>
   </div>
 </div>

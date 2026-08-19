@@ -1,6 +1,6 @@
 # Posts de lancement — API RapidAPI (à publier par Laurent)
 
-Fiche : https://rapidapi.com/Ghost11777/api/residential-scraper-crypto-company-data
+Fiche : https://rapidapi.com/laurenthalbrun/api/residential-scraper-crypto-company-data
 Règle d'or : **1 douleur résolue en titre**, pas « 85 endpoints ». Un post = un angle = un public.
 
 ---
@@ -16,7 +16,7 @@ Règle d'or : **1 douleur résolue en titre**, pas « 85 endpoints ». Un post =
 >
 > Pay-per-call, **free tier to try**, one key. Firecrawl/ScrapingBee quality at a fraction of the price.
 >
-> 👉 https://rapidapi.com/Ghost11777/api/residential-scraper-crypto-company-data
+> 👉 https://rapidapi.com/laurenthalbrun/api/residential-scraper-crypto-company-data
 >
 > Feedback welcome — what site is blocking you right now? I'll test it live.
 
@@ -35,7 +35,7 @@ Règle d'or : **1 douleur résolue en titre**, pas « 85 endpoints ». Un post =
 > Verdict OK / CAUTION / HIGH_RISK / AVOID across 8 chains. Plus token price/liquidity, DeFi yields, gas, trending & new pools.
 >
 > Pay-per-call, free tier. Built for autonomous agents — one key, no wallet needed.
-> 👉 https://rapidapi.com/Ghost11777/api/residential-scraper-crypto-company-data
+> 👉 https://rapidapi.com/laurenthalbrun/api/residential-scraper-crypto-company-data
 
 ---
 
@@ -50,7 +50,7 @@ Règle d'or : **1 douleur résolue en titre**, pas « 85 endpoints ». Un post =
 > • Global company data (US SEC, UK Companies House, FR KYB)
 >
 > Works over **MCP** (Rapid has a playground) and pay-per-call x402 (USDC on Base) if your agent has a wallet — or fiat via RapidAPI if it doesn't.
-> 👉 https://rapidapi.com/Ghost11777/api/residential-scraper-crypto-company-data
+> 👉 https://rapidapi.com/laurenthalbrun/api/residential-scraper-crypto-company-data
 
 ---
 
@@ -61,7 +61,7 @@ Règle d'or : **1 douleur résolue en titre**, pas « 85 endpoints ». Un post =
 **Corps :**
 > I got tired of juggling 6 API keys + rotating proxies just to enrich data. So I bundled it: residential-IP web scraping (reaches anti-bot sites), crypto/DeFi data + honeypot checks, and global company data (US/UK/FR) — 85 endpoints, GET+POST on every route, free tier to try.
 > Payable pay-per-call (crypto, x402) or subscription (fiat, RapidAPI). Would love feedback on the DX.
-> 👉 https://rapidapi.com/Ghost11777/api/residential-scraper-crypto-company-data
+> 👉 https://rapidapi.com/laurenthalbrun/api/residential-scraper-crypto-company-data
 
 ---
 

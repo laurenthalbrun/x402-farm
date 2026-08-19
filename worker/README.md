@@ -21,7 +21,7 @@ Agent → paie (x402) → Vercel [paywall + APIs rapides + découverte]
 
 1. Cloner le repo et lancer le script :
    ```bash
-   git clone https://github.com/Ghost11777/x402-farm.git && cd x402-farm
+   git clone https://github.com/laurenthalbrun/x402-farm.git && cd x402-farm
    bash worker/setup-macmini.sh
    ```
    Le script installe node + cloudflared, les dépendances, Chromium, génère le `WORKER_SECRET`, et écrit les services launchd.

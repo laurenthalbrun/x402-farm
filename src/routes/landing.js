@@ -50,6 +50,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:30px 0 60px;colo
   <h2>What you get</h2>
   <p class="muted">Seven scrapers and 60+ data endpoints, one backend.</p>
   <div class="grid">
+    <div class="card"><span class="tag">RESIDENTIAL</span><h3>Video transcripts</h3><p>TikTok, Instagram and YouTube spoken audio to text with Whisper. Not caption scraping &mdash; it works on videos that have no subtitles at all. <a href="https://apify.com/x402farm/tiktok-transcript-scraper">TikTok</a> &middot; <a href="https://apify.com/x402farm/instagram-transcript-scraper">Instagram</a> &middot; <a href="https://apify.com/x402farm/youtube-transcript-scraper">YouTube</a></p></div>
     <div class="card"><span class="tag">RESIDENTIAL</span><h3>Google Maps leads</h3><p>Local businesses by keyword + city: name, rating, reviews, phone, website. The feed cloud scrapers never load.</p></div>
     <div class="card"><span class="tag">RESIDENTIAL</span><h3>Amazon products</h3><p>Product & search: title, price, rating, reviews, brand, image. Stealth browser past the bot wall.</p></div>
     <div class="card"><span class="tag">RESIDENTIAL</span><h3>Pages Jaunes B2B leads</h3><p>French business directory with verified phone numbers pulled from JSON-LD. A ready call list.</p></div>
@@ -92,7 +93,7 @@ curl "https://api.x-402.online/v1/extract-structured?url=https://books.toscrape.
 </section>
 
 <footer>
-  Built by <a href="https://github.com/Ghost11777/x402-farm">Laurent Halbrun</a> · revenue wallet verifiable on
+  Built by <a href="https://github.com/laurenthalbrun/x402-farm">Laurent Halbrun</a> · revenue wallet verifiable on
   <a href="https://basescan.org/address/0x2c871C2b8876dc35e9E19646FDa5ABF1cd27735F">BaseScan</a> ·
   <a href="/openapi.json">OpenAPI</a> · <a href="/.well-known/x402">x402 manifest</a>
 </footer>
