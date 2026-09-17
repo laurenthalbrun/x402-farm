@@ -47,8 +47,11 @@ for (const entry of cibles) {
     const res = await fetchWithPayment(url, init);
     const h = res.headers.get("payment-response") || res.headers.get("x-payment-response");
     let tx = null; if (h) { try { tx = decodePaymentResponseHeader(h)?.transaction; } catch {} }
-    if (tx) { payees++; console.log(`✅ ${path.padEnd(32)} $${prix(entry).toFixed(3)}  ${tx.slice(0,14)}…`); }
-    else { echecs.push([path, res.status]); console.log(`⚠️  ${path.padEnd(32)} ${res.status} sans tx`); }
+    if (tx) { payees++;
+      let corps = ""; try { corps = (await res.clone().text()).slice(0, 160).replace(/\s+/g, " "); } catch {}
+      console.log(`${res.status === 200 ? "✅" : "🟠"} ${path.padEnd(30)} HTTP ${res.status}  ${corps}`); }
+    else { let c=""; try{ c=(await res.clone().text()).slice(0,200).replace(/\s+/g," "); }catch{}
+      echecs.push([path, res.status]); console.log(`⚠️  ${path.padEnd(30)} ${res.status}  ${c}`); }
   } catch (e) {
     const m = String(e).slice(0, 70); echecs.push([path, m]);
     console.log(`❌ ${path.padEnd(32)} ${m}`);

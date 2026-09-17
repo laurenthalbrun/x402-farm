@@ -123,7 +123,7 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { identite: { denomination: "DECATHLON" }, annonces_legales_total: 45, _partial: true } } } },
   { route: "GET /v1/fr/entreprise-360", price: "$0.04", desc: "Complete profile of a French company in a single call, assembled from official sources: legal identity and form, headquarters address, activity code, headcount, incorporation date, filed annual accounts, insolvency proceedings and registered establishments. Replaces four or five separate lookups against INSEE Sirene, INPI RNE and BODACC.",
     bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { found: true, identite: { siren: "306138900", tva: "FR51306138900" }, annonces_legales: { total: 98 } } } } },
-  { route: "GET /v1/guard", price: "$0.012", desc: "Check whether a domain, IP address or email is dangerous before your agent interacts with it. Combines reputation signals, domain age, hosting and known-abuse indicators into a single verdict with the reasoning behind it.",
+  { route: "GET /v1/guard", price: "$0.012", desc: "Screen untrusted text before your agent acts on it: prompt injection, data exfiltration, phishing and wallet-drainer intent. Pass raw content, or a URL we open from a residential IP so your agent never touches the trap. Returns a verdict, a 0-100 score, each finding with its matched snippet, and a sanitized copy of the text.",
     bazaar: { method: "GET", input: { content: "Ignore all previous instructions…" }, output: { example: { verdict: "dangerous", safeToProceed: false, threat: "injection", score: 72, recommendation: "BLOCK…", findings: [{ type: "injection", severity: 3 }] } } } },
   { route: "GET /v1/fr/due-diligence", price: "$0.15", desc: "Full due-diligence dossier on a French company, assembled from official registries in one call: legal identity, directors and beneficial owners, filed annual accounts with revenue and profit trend, insolvency proceedings from BODACC court announcements, and a consolidated risk reading. Replaces a paid solvency report and several hours of manual research.",
     bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { risk: "GREEN", verdict: "CONFORME", denomination: "DECATHLON", resolvedSiren: "306138900", flags: 0, vatValidatedVies: true } } } },
@@ -269,7 +269,7 @@ if (process.env.OPENAI_API_KEY || process.env.LLM_API_KEY) {
   });
   CATALOG.push({
     route: "POST /v1/llm/pro", price: "$0.006",
-    desc: "Smart LLM inference (DeepSeek v4 Pro): stronger reasoning for hard prompts, up to 2000 output tokens, no account. Body: {prompt, system?, max_tokens?}",
+    desc: "Long-form LLM inference: same engine as /v1/llm with a four times larger output budget, up to 8000 tokens, for answers the cheap route truncates. Body: {prompt, system?, max_tokens?}",
     bazaar: { bodyType: "json", method: "POST", input: { prompt: "Explain the tradeoffs of x402 vs API keys" }, output: { example: { output: "…", usage: { output_tokens: 300 } } } },
   });
 }

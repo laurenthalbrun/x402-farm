@@ -89,13 +89,19 @@ if (process.env.SERPER_API_KEY) {
 const LLM_KEY = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
 const LLM_BASE = process.env.LLM_BASE_URL || (process.env.LLM_API_KEY ? "https://api.deepseek.com" : "https://api.openai.com");
 const LLM_MODEL = process.env.LLM_MODEL || (process.env.LLM_API_KEY ? "deepseek-chat" : "gpt-5-mini");
-const LLM_MODEL_PRO = process.env.LLM_MODEL_PRO || (process.env.LLM_API_KEY ? "deepseek-v4-pro" : "gpt-5");
-function llmHandler(model) {
+// « deepseek-v4-pro » n'existait chez aucun fournisseur : la route rendait 502 en
+// silence. Le repli est donc le modèle standard, seul le budget de tokens diffère.
+const LLM_MODEL_PRO = process.env.LLM_MODEL_PRO || LLM_MODEL;
+// plafond/defaut : un modèle de raisonnement dépense d'abord ses tokens à réfléchir.
+// Avec le budget de 2000 du modèle standard, `content` revenait VIDE (502
+// llm_empty_response) : tout partait dans `reasoning_content`. La route pro a donc
+// sa propre enveloppe, et on se rabat sur le raisonnement si la réponse manque.
+function llmHandler(model, plafond = 2000, defaut = 1000) {
   return async (req, res) => {
     const prompt = (req.body?.prompt || q(req, "prompt") || "").toString().slice(0, 8000);
     if (!prompt) return res.status(400).json({ error: "missing_prompt" });
     const system = (req.body?.system || q(req, "system") || "").toString().slice(0, 2000);
-    const maxTokens = Math.min(Number(req.body?.max_tokens || q(req, "max_tokens")) || 1000, 2000);
+    const maxTokens = Math.min(Number(req.body?.max_tokens || q(req, "max_tokens")) || defaut, plafond);
     try {
       const d = await getJson(`${LLM_BASE}/chat/completions`, {
         method: "POST",
@@ -106,7 +112,8 @@ function llmHandler(model) {
           max_tokens: maxTokens,
         }),
       }, 90_000);
-      const output = d.choices?.[0]?.message?.content ?? null;
+      const msg = d.choices?.[0]?.message || {};
+      const output = msg.content?.trim() ? msg.content : (msg.reasoning_content?.trim() ? msg.reasoning_content : null);
       // Ne jamais renvoyer 200 sans contenu : le paywall a déjà réglé, on doit livrer.
       if (!output) return res.status(502).json({ error: "llm_empty_response" });
       res.json({ output, model: d.model,
@@ -116,7 +123,7 @@ function llmHandler(model) {
 }
 if (LLM_KEY) {
   router.all("/v1/llm", llmHandler(LLM_MODEL));
-  router.all("/v1/llm/pro", llmHandler(LLM_MODEL_PRO));
+  router.all("/v1/llm/pro", llmHandler(LLM_MODEL_PRO, 8000, 8000));
 }
 
 export default router;

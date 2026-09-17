@@ -70,7 +70,7 @@ export const DESCRIPTIONS = {
     "Complete profile of a French company in a single call, assembled from official sources: legal identity and form, headquarters address, activity code, headcount, incorporation date, filed annual accounts, insolvency proceedings and registered establishments. Replaces four or five separate lookups against INSEE Sirene, INPI RNE and BODACC. Built for agents doing supplier vetting, onboarding checks or lead qualification on French companies.",
 
   "GET /v1/guard":
-    "Check whether a domain, IP address or email is dangerous before your agent interacts with it. Combines reputation signals, domain age, hosting and known-abuse indicators into a single verdict with the reasoning behind it. Built for agents that follow links found in untrusted content and must decide, automatically and in one call, whether a destination is safe to visit or an address is safe to write to.",
+    "Screen untrusted text before your agent acts on it: prompt injection, data exfiltration, phishing and wallet-drainer intent. Pass raw content, or a URL we open from a residential IP so your agent never touches the trap. Returns a verdict, a 0-100 score, each finding with its matched snippet, and a sanitized copy of the text.",
 
   "GET /v1/fr/due-diligence":
     "Full due-diligence dossier on a French company, assembled from official registries in one call: legal identity, directors and beneficial owners, filed annual accounts with revenue and profit trend, insolvency proceedings from BODACC court announcements, and a consolidated risk reading. Replaces a paid solvency report and several hours of manual research. For agents vetting a supplier, a client or an acquisition target before a commitment is signed.",
