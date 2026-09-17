@@ -38,3 +38,4 @@ mcp-server/
 .sol-buyer.secret
 peer-sx/.apikey
 peer-sx/device.json
+.venv-whisper/

@@ -27,6 +27,11 @@ const WORKER_URL = (process.env.WORKER_URL || "").replace(/\/+$/, "");
 const WORKER_SECRET = process.env.WORKER_SECRET || "";
 const GROQ = process.env.GROQ_API_KEY || "";
 const MODELE = process.env.GROQ_MODEL || "whisper-large-v3-turbo";
+// Moteur local (Apple Silicon / MLX) : utilisé quand aucune clé Groq n'est
+// posée. Coût marginal nul, aucune dépendance tierce, ~3x le temps réel sur M4.
+const MLX_PYTHON = process.env.MLX_PYTHON || "";
+const MLX_SCRIPT = process.env.MLX_SCRIPT || "";
+const LOCAL_ASR = Boolean(MLX_PYTHON && MLX_SCRIPT);
 
 const PLATEFORMES = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|tiktok\.com|instagram\.com)\//i;
 
@@ -68,20 +73,30 @@ async function extraireEtTranscrire(url, langue) {
     const fi = fichiers.find((x) => x.endsWith(".info.json"));
     if (fi) { try { infos = JSON.parse(await readFile(join(d, fi), "utf8")); } catch {} }
 
-    const form = new FormData();
-    form.append("file", new Blob([buf], { type: "audio/mpeg" }), "a.mp3");
-    form.append("model", MODELE);
-    form.append("response_format", "verbose_json");
-    if (langue) form.append("language", langue);
+    let j;
+    if (GROQ) {
+      const form = new FormData();
+      form.append("file", new Blob([buf], { type: "audio/mpeg" }), "a.mp3");
+      form.append("model", MODELE);
+      form.append("response_format", "verbose_json");
+      if (langue) form.append("language", langue);
 
-    const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { authorization: `Bearer ${GROQ}` },
-      body: form,
-      signal: AbortSignal.timeout(300_000),
-    });
-    if (!r.ok) throw new Error(`groq_${r.status}`);
-    const j = await r.json();
+      const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { authorization: `Bearer ${GROQ}` },
+        body: form,
+        signal: AbortSignal.timeout(300_000),
+      });
+      if (!r.ok) throw new Error(`groq_${r.status}`);
+      j = await r.json();
+    } else if (LOCAL_ASR) {
+      // maxBuffer large : une heure d'audio produit un JSON de plusieurs Mo.
+      const { stdout } = await run(MLX_PYTHON, [MLX_SCRIPT, join(d, f), langue || ""],
+        { timeout: 600_000, maxBuffer: 1 << 26 });
+      j = JSON.parse(stdout);
+    } else {
+      throw new Error("no_asr_engine");
+    }
 
     return {
       url,
@@ -118,7 +133,7 @@ router.get("/v1/transcribe", async (req, res) => {
       example: "/v1/transcribe?url=https://www.tiktok.com/@nasa/video/7670721000471891214",
     });
   }
-  if (!GROQ && !WORKER_URL) {
+  if (!GROQ && !WORKER_URL && !LOCAL_ASR) {
     return res.status(503).json({ error: "engine_unavailable", detail: "No transcription engine configured." });
   }
 
