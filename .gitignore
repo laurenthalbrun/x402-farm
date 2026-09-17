@@ -36,3 +36,5 @@ honeypot-guard/
 mcp-server/
 .sol-wallet.secret
 .sol-buyer.secret
+peer-sx/.apikey
+peer-sx/device.json

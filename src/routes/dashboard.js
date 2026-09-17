@@ -4,6 +4,7 @@ import { ICON_512, ICON_192, ICON_180 } from "./dashboard-icons.js";
 import { recettesTempo, TEMPO_ACTIF } from "../lib/tempo.js";
 import { gainsBoundless, BOUNDLESS_ACTIF } from "../lib/boundless.js";
 import { visibiliteBazaar } from "../lib/visibilite.js";
+import { gainsPeerSx, PEER_SX_ACTIF } from "../lib/peer-sx.js";
 
 // Centre de contrôle temps réel (token) : plein écran, poll JSON toutes les 6 s,
 // ticker, feed live, graphes minute/heure, statut des sous-systèmes.
@@ -139,7 +140,7 @@ function auth(req, res) {
 // ---------- Endpoint JSON (pollé par le front) ----------
 router.get("/dashboard/data", async (req, res) => {
   if (!auth(req, res)) return;
-  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status, tempo, boundless, visibilite] = await Promise.all([
+  const [routes, daily, byCountry, feed, hourly, minutely, payers, latency, bal, status, tempo, boundless, visibilite, peerSx] = await Promise.all([
     sb("api_revenue_by_route", "?order=revenue_usd.desc"),
     sb("api_daily", "?order=jour.desc&limit=15"),
     sb("api_by_country", ""),
@@ -153,6 +154,7 @@ router.get("/dashboard/data", async (req, res) => {
     recettesTempo(process.env.TEMPO_PAY_TO),
     gainsBoundless(process.env.BOUNDLESS_PROVER, 1867),
     visibiliteBazaar(),
+    gainsPeerSx(),
   ]);
   const radar = await sb("radar_latest", "?limit=12");
   const apify = await apifyChannel();
@@ -167,6 +169,7 @@ router.get("/dashboard/data", async (req, res) => {
     balance: bal, eur: bal != null ? bal * EUR : null,
     tempo: TEMPO_ACTIF() ? { ...tempo, payTo: process.env.TEMPO_PAY_TO } : null,
     boundless: BOUNDLESS_ACTIF() ? boundless : null,
+    peerSx: PEER_SX_ACTIF() ? peerSx : null,
     visibilite,
     payTo: process.env.PAY_TO || null, network: process.env.NETWORK || null,
     cumulative: {
@@ -406,6 +409,7 @@ footer a{color:var(--blue);text-decoration:none}
   <div class="kpi" id="k-vis"><div class="lbl">Visibilité Bazaar</div><div class="v num" id="v-vis">—</div><div class="s" id="s-vis">rang sur les requêtes clés</div></div>
   <div class="kpi" id="k-tempo" style="display:none"><div class="lbl">Encaissé sur Tempo</div><div class="v num" id="v-tempo">—</div><div class="s" id="s-tempo">en attente du premier règlement</div></div>
   <div class="kpi" id="k-bnd" style="display:none"><div class="lbl">Preuves ZK<br>Boundless</div><div class="v num" id="v-bnd">—</div><div class="s" id="s-bnd">gains en ETH, réglés à l'ordre</div></div>
+  <div class="kpi" id="k-sx" style="display:none"><div class="lbl">Bande passante<br>proxies.sx</div><div class="v num" id="v-sx">—</div><div class="s" id="s-sx">peer sur le Mac mini</div></div>
   <div class="kpi" id="k-rev"><div class="lbl">Revenu aujourd'hui</div><div class="v num" id="v-rev">—</div><div class="delta" id="d-rev"></div><div class="s" id="s-rev"></div></div>
   <div class="kpi"><div class="lbl">Revenu cumulé</div><div class="v num" id="v-cum">—</div><div class="s" id="s-cum"></div></div>
   <div class="kpi" id="k-paid"><div class="lbl">Appels payés (jour)</div><div class="v num" id="v-paid">—</div><div class="delta" id="d-paid"></div></div>
@@ -815,6 +819,19 @@ function refresh(){
         else sb = b.gagneEth.toFixed(6) + " ETH"
           + (b.parJourUsd != null ? " · rythme " + fmt(b.parJourUsd, 2) + " $/j" : " · rythme mesurable après 2 h");
         $("s-bnd").textContent = sb;
+      }
+
+      if (d.peerSx) {
+        $("k-sx").style.display = "";
+        var p = d.peerSx;
+        countUp($("v-sx"), p.gagne || 0, 2, "$");
+        var sx;
+        if (p.statut !== "online") sx = "device " + p.statut + " — hors ligne, il ne peut pas etre choisi";
+        else if (!p.go) sx = "en ligne (" + (p.ipType || "?") + ") · aucun trafic client a ce jour";
+        else sx = p.go.toFixed(3) + " Go acheminés"
+          + (p.parGo != null ? " · " + fmt(p.parGo, 2) + " $/Go effectif" : "")
+          + " · retrait des " + fmt(p.seuil, 0) + " $";
+        $("s-sx").textContent = sx;
       }
       var tRev = d.today ? Number(d.today.revenue_usd) : 0;
       var yRev = d.yesterday ? Number(d.yesterday.revenue_usd) : 0;

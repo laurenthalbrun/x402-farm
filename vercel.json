@@ -10,7 +10,12 @@
   "redirects": [
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "x402-farm.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "x402-farm.vercel.app"
+        }
+      ],
       "destination": "https://api.x-402.online/$1",
       "permanent": true
     }
@@ -25,6 +30,10 @@
     {
       "path": "/radar/run",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/free/sante/mini",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

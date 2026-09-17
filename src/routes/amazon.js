@@ -8,6 +8,7 @@ import { withStealthPage } from "../lib/browser.js";
 import { blockHint } from "../lib/upsell.js";
 const exitMode = (p) => (String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { tryWorker } from "../lib/worker-proxy.js";
+import { assertPublicUrl } from "../lib/guard.js";
 
 const router = Router();
 const DOMAIN = process.env.AMAZON_DOMAIN || "amazon.fr";
@@ -26,8 +27,27 @@ const priceVal = (s) => {
   return Number.isFinite(v) ? v : null;
 };
 
+// ?url= acceptait n'importe quelle URL absolue et la passait telle quelle au navigateur,
+// sans le moindre garde : /v1/amazon?url=http://169.254.169.254/ suffisait. Cette route
+// ne sert qu'Amazon, donc on la borne au domaine ET on repasse par le garde public.
+// L'ASIN est concaténé dans un chemin : on le borne aussi, sinon il traverse l'URL.
+const AMAZON_HOST = /(^|\.)amazon\.[a-z]{2,3}(\.[a-z]{2,3})?$/i;
+const ASIN_OK = /^[A-Za-z0-9]{6,16}$/;
+
+async function amazonUrl(idOrUrl) {
+  if (!/^https?:\/\//.test(idOrUrl)) {
+    if (!ASIN_OK.test(idOrUrl)) throw Object.assign(new Error("invalid_asin"), { status: 400 });
+    return `https://www.${DOMAIN}/dp/${idOrUrl}`;
+  }
+  const url = await assertPublicUrl(idOrUrl);
+  if (!AMAZON_HOST.test(url.hostname)) {
+    throw Object.assign(new Error("url_not_amazon"), { status: 400 });
+  }
+  return url.href;
+}
+
 async function scrapeProduct(idOrUrl, exit) {
-  const url = /^https?:\/\//.test(idOrUrl) ? idOrUrl : `https://www.${DOMAIN}/dp/${idOrUrl}`;
+  const url = await amazonUrl(idOrUrl);
   return withStealthPage(url, async (page) => {
     return page.evaluate(() => {
       const t = (sel) => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, " ").trim() : null; };

@@ -13,6 +13,8 @@ import crypto from "node:crypto";
 
 const router = Router();
 const SECRET = process.env.PROXY_HMAC_SECRET || "";
+import { proxyJoignable } from "../lib/joignabilite.js";
+
 const PROXY_HOST = process.env.PROXY_PUBLIC_HOST || "RESIDENTIAL_PROXY_HOST:8899";
 const WORKER_URL = process.env.WORKER_URL || "";
 const WORKER_SECRET = process.env.WORKER_SECRET || "";
@@ -25,24 +27,142 @@ function signKey(gb, ttlDays = 30) {
   return `rp1.${body}.${sig}`;
 }
 
-// --- verified exits, cached 60 s ---------------------------------------------
-let cache = { at: 0, state: null };
-async function exitState() {
-  if (Date.now() - cache.at < 60_000) return cache.state;
-  let state = null;
-  if (WORKER_URL) {
-    try {
-      const ctl = new AbortController();
-      const t = setTimeout(() => ctl.abort(), 4000);
-      const r = await fetch(`${WORKER_URL.replace(/\/$/, "")}/proxy-exits`, {
-        headers: { "x-worker-secret": WORKER_SECRET }, signal: ctl.signal,
-      });
-      clearTimeout(t);
-      if (r.ok) state = await r.json();
-    } catch { /* node unreachable → nothing verified → nothing sold */ }
+// --- verified exits ----------------------------------------------------------
+// ⚠️ 13/08 : la version précédente mettait l'ÉCHEC en cache exactement comme un succès
+// (`cache = { at: Date.now(), state }` s'exécutait même avec state === null). Un seul
+// aller-retour raté vers le mini fermait donc les DEUX tiers d'un coup pendant 60 s.
+// Mesuré en base sur 14 j : 374 refus à 4000 ms pile (le timeout) + 1790 refus instantanés
+// (l'échec rejoué depuis le cache), soit ~14 % des requêtes proxy refusées — sur le seul
+// produit qui ait jamais fait une vraie vente, alors que les sorties avaient 331 h d'uptime.
+//
+// Trois principes désormais :
+//   1. une sonde ratée n'est pas un verdict — on réessaie une fois avant de conclure ;
+//   2. on ne met JAMAIS un échec en cache : on rejoue le dernier état VÉRIFIÉ pendant une
+//      courte grâce, puis on ferme pour de bon si le mini reste muet ;
+//   3. pendant une panne on ne re-sonde pas à chaque requête (sinon chaque agent attend
+//      le timeout complet), on espace les tentatives.
+//
+// ⚠️ 13/08, correctif de fond : le sens de circulation est INVERSÉ. Le mini publie son
+// état dans Supabase (`resi-proxy/publish-exits.mjs`, toutes les 60 s) et la ferme LIT
+// une ligne dans sa propre région — plus aucun aller-retour vers la Guadeloupe dans le
+// chemin critique de la vente. L'appel direct au mini reste en SECOURS, pour le cas où
+// le publieur serait tombé.
+const EXITS_FRAIS_MS = 60_000;      // un état vérifié reste valable 1 min
+const EXITS_GRACE_MS = 5 * 60_000;  // au-delà, plus rien n'est vendable
+const EXITS_REESSAI_MS = 15_000;    // intervalle minimum entre deux tentatives
+const EXITS_DELAI_MS = 6000;        // la normale mesurée est ~190 ms : 6 s est déjà large
+const PUBLIE_MAX_AGE_MS = 5 * 60_000; // ligne publiée il y a plus longtemps = publieur mort
+const STALE_MS = 30 * 60_000;         // même seuil que le worker : sonde vieille = pas de vente
+
+let cache = { at: 0, state: null };  // dernier état VÉRIFIÉ (jamais un échec)
+let exitsTentativeAt = 0;
+let exitsEnGrace = false;
+let exitsOrigine = "aucune";
+
+// Lecture de la ligne publiée par le mini. La clé anon pouvant écrire (RLS permissive,
+// comme proxy_ports), la signature HMAC est VÉRIFIÉE ici : sans elle, quiconque
+// obtiendrait la clé pourrait forger « tout est debout » et nous faire vendre dans le
+// vide — exactement la panne du 06/08, mais provoquée.
+async function litSortiesPubliees() {
+  if (!SB_URL || !SB_KEY || !SECRET) return null;
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/proxy_exit_state?id=eq.current&select=published_at,state_json,sig`,
+      { headers: { apikey: SB_KEY, authorization: `Bearer ${SB_KEY}` }, signal: AbortSignal.timeout(3000) }
+    );
+    if (!r.ok) return null;
+    const [row] = await r.json();
+    if (!row?.state_json || !row.sig) return null;
+    if (row.sig !== signeEtat(row.state_json)) return null;              // signature invalide → on ignore
+    if (Date.now() - Date.parse(row.published_at) > PUBLIE_MAX_AGE_MS) return null; // publieur muet
+    const etat = JSON.parse(row.state_json);
+    // La fraîcheur de la SONDE se juge ici, pas côté mini : un publieur bloqué sur un
+    // vieux fichier ne doit pas pouvoir faire passer un état périmé pour frais.
+    const age = Date.now() - Date.parse(etat.checkedAt);
+    return { ...etat, ageSec: Math.round(age / 1000), stale: !(age < STALE_MS) };
+  } catch { return null; }
+}
+
+const signeEtat = (texte) =>
+  b64url(crypto.createHmac("sha256", SECRET).update(texte).digest()).slice(0, 43);
+
+/**
+ * Le publieur du mini est-il vivant ? Réponse mesurée du point de vue de la ferme :
+ * peut-on lire MAINTENANT une ligne fraîche ET correctement signée ?
+ *
+ * Volontairement AVEUGLE au cache d'`exitState` — un cache tiède masquerait un
+ * publieur mort depuis dix minutes. Et volontairement construite sur `signeEtat`,
+ * la fonction que le chemin de vente utilise vraiment : dupliquer le calcul de
+ * signature ici laisserait les deux dériver, et la surveillance validerait une
+ * signature que la vente rejette.
+ * Lève une erreur explicite en cas de problème — la sonde de /free/sante/mini
+ * transforme ça en alerte.
+ */
+export async function santePublication() {
+  if (!SB_URL || !SB_KEY || !SECRET) throw new Error("publication non configurée (Supabase ou clé HMAC absente)");
+  const r = await fetch(
+    `${SB_URL}/rest/v1/proxy_exit_state?id=eq.current&select=published_at,state_json,sig`,
+    { headers: { apikey: SB_KEY, authorization: `Bearer ${SB_KEY}` }, signal: AbortSignal.timeout(5000) }
+  );
+  if (!r.ok) throw new Error(`supabase_http_${r.status}`);
+  const [row] = await r.json();
+  if (!row?.state_json) throw new Error("aucun état publié");
+  if (row.sig !== signeEtat(row.state_json)) throw new Error("signature invalide (état non authentique)");
+  const ageSec = Math.round((Date.now() - Date.parse(row.published_at)) / 1000);
+  if (ageSec * 1000 > PUBLIE_MAX_AGE_MS) {
+    throw new Error(`publication vieille de ${ageSec} s — le publieur du mini est muet, la vente repasse par le chemin fragile`);
   }
-  cache = { at: Date.now(), state };
-  return state;
+  return { age_sec: ageSec, sonde_le: JSON.parse(row.state_json).checkedAt || null };
+}
+
+async function litSorties() {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), EXITS_DELAI_MS);
+  try {
+    const r = await fetch(`${WORKER_URL.replace(/\/$/, "")}/proxy-exits`, {
+      headers: { "x-worker-secret": WORKER_SECRET }, signal: ctl.signal,
+    });
+    return r.ok ? await r.json() : null;
+  } catch { return null; } finally { clearTimeout(t); }
+}
+
+async function exitState() {
+  const now = Date.now();
+  if (cache.state && now - cache.at < EXITS_FRAIS_MS) { exitsEnGrace = false; return cache.state; }
+
+  // Une tentative vient d'échouer : on rejoue sans re-payer le timeout.
+  if (now - exitsTentativeAt < EXITS_REESSAI_MS) return sortiesDeGrace(now);
+
+  exitsTentativeAt = now;
+
+  // 1. Chemin normal : la ligne publiée par le mini, lue dans notre propre région.
+  let state = await litSortiesPubliees();
+  let origine = "publie";
+
+  // 2. Secours : le publieur est peut-être tombé alors que le mini répond encore.
+  //    On ne réessaie qu'ICI, là où le réseau est réellement fragile.
+  if (!state && WORKER_URL) {
+    origine = "direct";
+    state = await litSorties();
+    if (!state) state = await litSorties();  // un aléa réseau ne prouve pas que la sortie est tombée
+  }
+
+  if (state) {
+    cache = { at: now, state };
+    exitsEnGrace = false;
+    exitsOrigine = origine;
+    return state;
+  }
+  return sortiesDeGrace(now);
+}
+
+// Le mini est muet. Tant que son dernier état vérifié est récent, on continue de vendre :
+// couper sur une incertitude coûte des ventes réelles, et le garde de joignabilité
+// (sonde TCP indépendante, depuis l'internet) reste là pour attraper une vraie panne.
+function sortiesDeGrace(now) {
+  if (cache.state && now - cache.at < EXITS_GRACE_MS) { exitsEnGrace = true; return cache.state; }
+  exitsEnGrace = false;
+  return null;
 }
 // Returns the exit that can serve this tier AND still has the bandwidth in stock, or
 // null. `gb` = size of the bundle asked for: an exit whose monthly data allowance can't
@@ -82,6 +202,24 @@ export function proxyTierGuard() {
       }
     }
     if (!req.path.startsWith("/v1/proxy/") && !req.path.startsWith("/v1/mobile-proxy/")) return next();
+
+    // Le port répond-il DEPUIS L'INTERNET ? Les contrôles locaux ne peuvent pas
+    // voir un blocage situé entre l'internet et la machine — redirection de port
+    // disparue, filtrage opérateur. Le 06/08, la ferme a vendu pendant des jours
+    // un accès vers un port fermé parce que rien ne regardait de l'extérieur.
+    // `null` = la sonde n'a pas abouti : on ne conclut rien et on laisse vendre,
+    // couper sur une incertitude serait aussi nuisible que vendre dans le vide.
+    const joignable = await proxyJoignable();
+    if (joignable.ok === false) {
+      return res.status(503).json({
+        error: "proxy_unreachable",
+        detail: "The residential proxy endpoint is not reachable from the internet right now, "
+          + "so this bundle cannot be delivered. You were NOT charged. Check /free/proxy/status.",
+        host: joignable.hote || null,
+        checked_at: joignable.verifieLe || null,
+        status_endpoint: "/free/proxy/status",
+      });
+    }
     // ⚠️ Les routes /v1/proxy/port/* sont vendues comme MOBILE (issue(..., "mobile", …))
     // mais l'ancien motif ne les reconnaissait pas : elles étaient contrôlées comme
     // « residential ». Conséquence : sortie mobile tombée + résidentielle debout = le garde
@@ -273,6 +411,11 @@ router.get("/free/proxy/status", async (_req, res) => {
     mobile: !!pickExit(state, "mobile"),
   };
   res.json({
+    // Joignabilité depuis l'internet : la seule mesure qui dise si un acheteur
+    // pourra réellement se connecter. Les champs `exits` ci-dessous ne
+    // reflètent que des contrôles LOCAUX, aveugles à une redirection de port
+    // disparue — c'est ce qui a permis de vendre dans le vide le 06/08.
+    reachable_from_internet: await proxyJoignable(),
     tiers_available: tiers,
     exits: state?.exits
       ? Object.fromEntries(Object.entries(state.exits).map(([n, e]) => [n, {
@@ -281,6 +424,14 @@ router.get("/free/proxy/status", async (_req, res) => {
         }]))
       : null,
     checked_at: state?.checkedAt || null,
+    // « grace » = le nœud n'a pas répondu à la dernière sonde et on rejoue son dernier
+    // état vérifié. On le dit plutôt que de laisser croire à une mesure fraîche : c'est
+    // aussi ce que la surveillance doit voir pour distinguer un hoquet d'une vraie panne.
+    state_source: state ? (exitsEnGrace ? "grace" : "live") : "unavailable",
+    // « publie » = lu dans la ligne que le mini pousse (chemin normal, aucun appel
+    // longue distance) ; « direct » = secours, la ferme a dû joindre le mini elle-même.
+    // Un `direct` durable veut dire que le publieur du mini est tombé.
+    state_path: state ? exitsOrigine : null,
     // Stabilité de la sortie : un acheteur de bande passante veut savoir depuis quand le
     // nœud tourne sans interruption avant d'engager son budget.
     exit_uptime_hours: state?.uptimeSec != null ? Number((state.uptimeSec / 3600).toFixed(2)) : null,

@@ -1,3 +1,39 @@
+import { isPrivateIp } from "./guard.js";
+
+// ---------- Deuxième ligne de défense anti-SSRF ----------
+// assertPublicUrl (lib/guard.js) ne valide que l'URL de DÉPART, et il la rend telle quelle,
+// nom d'hôte intact. Chromium résout ensuite le DNS LUI-MÊME, plusieurs secondes plus tard,
+// et suit les redirections. Deux trous en découlent, tous deux vérifiés :
+//   1. redirection : une page publique renvoie une 302 vers 169.254.169.254 ou vers le LAN,
+//      et page.content() rend le contenu interne à l'appelant. Aucun contrôle du DNS requis.
+//   2. DNS rebinding : TTL=0, réponse publique au garde puis privée au navigateur.
+// On vérifie donc, après navigation, l'IP RÉELLEMENT contactée sur toute la chaîne de
+// redirections, et on refuse de rendre le contenu si l'un des sauts a atterri en privé.
+//
+// Pourquoi pas une interception context.route("**/*") : mesuré le 2026-09-02, elle coûte
+// +225 % sur une page lourde (lemonde.fr : 2,7 s -> 8,9 s), et le coût vient de l'aller-
+// retour Playwright lui-même, pas du filtre — le restreindre aux navigations ne change
+// rien (8,9 s aussi). Le blocage AVANT connexion se fait donc au niveau réseau (ACL squid
+// sur le mini), pas ici. Résiduel assumé : un GET aveugle peut atteindre un hôte interne,
+// mais aucune donnée ne remonte à l'appelant.
+// serverAddr() donne l'IP à laquelle Chromium s'est effectivement connecté : c'est ce qui
+// attrape le rebinding, que la vérification DNS du garde ne peut pas voir.
+async function assertNavigationStayedPublic(response) {
+  const chain = [];
+  let r = response;
+  while (r) {
+    chain.push(r);
+    const from = r.request().redirectedFrom();
+    r = from ? await from.response() : null;
+  }
+  for (const resp of chain) {
+    const addr = await resp.serverAddr().catch(() => null);
+    if (addr?.ipAddress && isPrivateIp(addr.ipAddress)) {
+      throw Object.assign(new Error("private_address_blocked"), { status: 400 });
+    }
+  }
+}
+
 // Sur Vercel : chromium allégé @sparticuz + playwright-core. Ailleurs : Playwright complet.
 const IS_VERCEL = !!process.env.VERCEL;
 
@@ -107,7 +143,8 @@ export async function withPage(url, fn, { fullPage = false, exit } = {}) {
     ]).catch(() => {});
     const page = await context.newPage();
     page.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
-    await page.goto(url, { waitUntil: "domcontentloaded" });
+    const response = await page.goto(url, { waitUntil: "domcontentloaded" });
+    await assertNavigationStayedPublic(response);
     await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
     return await fn(page);
   } finally {
@@ -166,7 +203,8 @@ export async function withStealthPage(url, fn, { waitMs = 3500, cookies = [], ex
     if (cookies.length) await context.addCookies(cookies).catch(() => {});
     const page = await context.newPage();
     page.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
-    await page.goto(url, { waitUntil: "domcontentloaded" });
+    const response = await page.goto(url, { waitUntil: "domcontentloaded" });
+    await assertNavigationStayedPublic(response);
     if (waitMs) await page.waitForTimeout(waitMs);
     return await fn(page);
   } finally {
