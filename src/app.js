@@ -79,6 +79,7 @@ app.use((req, res, next) => {
       `<${base}/llms.txt>; rel="describedby"; type="text/plain"`,
       `<${base}/.well-known/x402>; rel="payment"`,
       `<${base}/.well-known/agent-skills.json>; rel="agent-skills"; type="application/json"`,
+      `<${base}/.well-known/agent.json>; rel="agent-card"; type="application/json"`,
       `<${base}/.well-known/mcp>; rel="mcp-server"; type="application/json"`,
     ].join(", ")
   );

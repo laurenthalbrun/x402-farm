@@ -204,4 +204,88 @@ router.get("/.well-known/mcp", (req, res) => {
   });
 });
 
+// ===== /.well-known/agent.json : AgentCard (A2A) =====
+// Pourquoi deux noms : le fichier canonique de l'AgentCard a changé entre les versions
+// de la spécification A2A. On sert le même document sous /.well-known/agent.json ET sous
+// /.well-known/agent-card.json plutôt que de parier sur celui que lira l'agent d'en face.
+//
+// Ce document décrit l'AGENT, là où /.well-known/x402 décrit le CATALOGUE. Un agent qui
+// arrive ici doit pouvoir répondre seul à six questions : ce que je sais faire, ce que ça
+// coûte, comment payer, ce que je renvoie, en combien de temps, et comment le vérifier.
+//
+// Aucune réputation n'est revendiquée : les registres ERC-8004 sont sur testnet Sepolia et
+// un score auto-déclaré ne prouve rien. La seule preuve offerte est on-chain.
+function agentCard(req) {
+  const base = baseUrl(req);
+  const prix = CATALOG.map((e) => Number(String(e.price).replace(/[^0-9.]/g, ""))).filter((n) => n > 0);
+  return {
+    protocolVersion: "0.3.0",
+    name: "x402-farm",
+    description:
+      "Agent vendeur de capacités payables à l'appel. Capacité rare : un proxy mobile 4G/5G sur IP " +
+      "opérateur réelle (Orange, France et Guadeloupe, AS16028), la classe d'IP la plus difficile à " +
+      "bloquer. Plus proxy résidentiel au gigaoctet, extraction web depuis une IP résidentielle " +
+      "française, données d'entreprise France/UK/US, inférence LLM bon marché, recherche web et " +
+      "actualités. Paiement x402 en USDC, sans compte ni clé d'API.",
+    url: base,
+    preferredTransport: "JSONRPC",
+    provider: { organization: "x402-farm", url: base },
+    version: "1.0.0",
+    documentationUrl: `${base}/llms.txt`,
+    capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
+    defaultInputModes: ["application/json", "text/plain"],
+    defaultOutputModes: ["application/json"],
+    // Une compétence par route du catalogue : c'est ce que l'agent peut réellement acheter.
+    skills: CATALOG.map((e) => {
+      const [method, path] = e.route.split(" ");
+      return {
+        id: toolName(path),
+        name: toolName(path),
+        description: e.desc,
+        tags: ["x402", "pay-per-call", method.toLowerCase()],
+        inputModes: ["application/json"],
+        outputModes: ["application/json"],
+        invocation: { type: "http", method, url: `${base}${path}` },
+        input: e.bazaar?.input || {},
+        pricing: { amount: e.price, currency: "USDC", protocol: "x402", networks: NETWORKS },
+      };
+    }),
+    // Tout ce qui touche au paiement, au même endroit.
+    payment: {
+      protocol: "x402",
+      networks: NETWORKS,
+      asset: "USDC",
+      payTo: PAY_TO,
+      model: "pay-per-call",
+      from: prix.length ? `$${Math.min(...prix)}` : null,
+      note: "Le montant exact est annoncé dans la réponse 402 de chaque route. Aucun abonnement, aucun compte.",
+    },
+    // Comment un tiers vérifie que nous payons ce que nous disons, sans nous croire sur parole.
+    verification: {
+      method: "on-chain settlement",
+      wallet: PAY_TO,
+      explorer: PAY_TO ? `https://basescan.org/address/${PAY_TO}` : null,
+      note: "Chaque appel payé est réglé avant livraison et vérifiable publiquement sur Base.",
+    },
+    reputation: {
+      claimed: null,
+      note:
+        "Aucun score de réputation n'est revendiqué. Les registres ERC-8004 sont déployés sur " +
+        "Ethereum Sepolia (testnet) et un score auto-déclaré ne prouve rien. La seule preuve " +
+        "offerte est la liste publique des paiements reçus on-chain.",
+    },
+    discovery: {
+      x402: `${base}/.well-known/x402`,
+      agentCard: `${base}/.well-known/agent-card.json`,
+      mcp: `${base}/.well-known/mcp`,
+      agentSkills: `${base}/.well-known/agent-skills.json`,
+      openapi: `${base}/openapi.json`,
+      llms: `${base}/llms.txt`,
+    },
+  };
+}
+
+router.get("/.well-known/agent.json", (req, res) => res.json(agentCard(req)));
+router.get("/.well-known/agent-card.json", (req, res) => res.json(agentCard(req)));
+
 export default router;
