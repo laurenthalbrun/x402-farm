@@ -203,6 +203,19 @@ export function proxyTierGuard() {
     }
     if (!req.path.startsWith("/v1/proxy/") && !req.path.startsWith("/v1/mobile-proxy/")) return next();
 
+    // Interrupteur manuel. Les sondes automatiques ne voient que la machine et le
+    // port ; elles ne savent pas que la bande passante vendue est celle de la
+    // connexion domestique de l'opérateur et qu'il peut avoir besoin de la
+    // reprendre. Poser PROXY_SALES_OFF coupe la vente des lots AVANT le paywall :
+    // aucun agent n'est débité, les clés déjà vendues continuent de fonctionner.
+    if (String(process.env.PROXY_SALES_OFF || "").trim() && !/^0|false$/i.test(process.env.PROXY_SALES_OFF.trim())) {
+      return res.status(503).json({
+        error: "bundles_temporarily_unavailable",
+        detail: "Proxy bandwidth bundles are not on sale right now. You were not charged. Existing keys are unaffected.",
+        status_endpoint: "/free/proxy/status",
+      });
+    }
+
     // Le port répond-il DEPUIS L'INTERNET ? Les contrôles locaux ne peuvent pas
     // voir un blocage situé entre l'internet et la machine — redirection de port
     // disparue, filtrage opérateur. Le 06/08, la ferme a vendu pendant des jours

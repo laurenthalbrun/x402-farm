@@ -1,0 +1,15 @@
+# Vercel n'utilise PAS .gitignore quand ce fichier existe : tout ce qui suit
+# doit y rester listé. Le venv Whisper (~20 000 fichiers) faisait dépasser la
+# limite de 15 000 fichiers par déploiement — il ne sert qu'au Mac mini.
+.venv-whisper/
+node_modules/
+data/
+dist/
+honeypot-guard/
+mcp-server/
+peer-sx/
+phone-agent/
+resi-proxy/
+byol-monitor/
+datasets/
+*.log
